@@ -1,0 +1,14 @@
+#########
+Lamni Python Classes for Analysis of Magnetic Laminography Scans
+
+Data input: 
+Data will be a .mat file from the reconstruction software prepared by Donnelly et al. REF
+
+Flow: 
+Loads in the data, then uses the paramDict to: 
+- to first rotate the reconstruction, so that it's parallel to the array boxes using paramDict['Rot']
+- then crop using paramDict['Box']
+- then threshold the image using paramDict['thresh']
+
+
+#########
