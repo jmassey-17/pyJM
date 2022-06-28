@@ -1,0 +1,23 @@
+To do: 
+Basic Functions: 
+- Do some guidance/code description
+
+Does it need to be so complicated how can we break it down so its easier to use?
+
+Lamni: 
+- Sort out the csv file parameter file
+- needs to save the output from the gui into the file
+- needs to update the file with the date etc
+- needs to sort the data by the date
+- worth keeping or do an auto initiation of the dictionaries?
+
+LamniOutput: 
+- Test extensively, lots of bugs
+
+Guis
+- Sort out the formatting issues and make sure it saves these to the param file if keeping
+
+BCDI: 
+- Basically everything
+- Use the analysis of the charge data to fine tune this. 
+_ comparitive threshhold gui perhaps?
