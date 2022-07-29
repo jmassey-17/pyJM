@@ -95,7 +95,6 @@ class Lamni():
         self.rawCharge = rec_charge 
         self.rawMag = rec_mag
         
-        
         if paramDict == None: 
             """Initialize the param dict for first time use"""
             paramDict = {'H or C': 'C', 
@@ -136,18 +135,15 @@ class Lamni():
             while happy == 'n': 
                 threshTest = float(input("Enter the threshold estimate as percentage of max: "))
                 fig, ax = plt.subplots(1,2, num = 1)
-                mag = np.sqrt(np.sum(abs(self.rawMag**2), axis = 0))
-                ax[0].imshow(np.sum(abs(mag), axis = 2))
-                ax[1].imshow(np.sum(abs(mag) > np.amax(abs(mag))*threshTest, axis = 2))
+                mag = np.sqrt(np.sum(self.rawMag**2, axis = 0))
+                ax[0].imshow(np.sum(mag, axis = 2))
+                ax[1].imshow(np.sum(mag > np.amax(mag)*threshTest, axis = 2))
                 fig.canvas.draw()
                 plt.pause(0.05)
                 happy = input('Happy? y or n: ')
                 plt.close(1)
             paramDict['thresh'] = threshTest
-            self.Params = {str(file[:3]): paramDict}
-        else: 
-            self.Params = paramDict
-        
+        self.Params = paramDict
         rotatedCharge = np.zeros_like(self.rawCharge)
         rotatedMag = np.zeros_like(self.rawMag)
         for i in range(rotatedCharge.shape[2]): 
@@ -188,14 +184,15 @@ class Lamni():
         if t != None: 
             m = self.recDict['{}'.format(t)]['mag']
             c = self.recDict['{}'.format(t)]['charge']
-            box = self.Params['{}'.format(t)]['Box']
         else: 
             m = self.rec['mag']
             c = self.rec['charge']
-            box = self.Params[self.t]['Box']
-            
-        mNew = m[:,box[2]:box[3], box[0]:box[1], :]
-        cNew = c[box[2]:box[3], box[0]:box[1], :]
+        mNew = np.zeros(shape = (3, arraySize, arraySize, m.shape[3]))
+        cNew = np.zeros(shape = (arraySize, arraySize, m.shape[3]))
+        dims = [int(b[3]-b[2]), int(b[1]-b[0])]
+        mNew[:, int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = m[:, b[2]:b[3], b[0]:b[1], :]
+        cNew[int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), 
+             int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = c[b[2]:b[3], b[0]:b[1], :]
         mag = np.sqrt(mNew[0]**2 + mNew[1]**2 + mNew[2]**2)
         
         if outline == True: 
@@ -212,7 +209,7 @@ class Lamni():
         else: 
             outline = 0
         
-        test = abs(mag) > thresh*np.amax(abs(mag))
+        test = abs(mag) > thresh*np.amax(mag)
         mx = np.copy(mNew[0], order = "C")
         mx[~test] = 0
 
@@ -360,7 +357,6 @@ class Lamni():
                                 for k in range(3):
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
             self.vorticity = v
-            self.vorticityMag = np.sqrt(np.sum(v**2, axis = 0))
         else: 
             mx = self.magProcessed[t][0]/self.mag[t]
             my = self.magProcessed[t][1]/self.mag[t]
@@ -374,11 +370,10 @@ class Lamni():
                             for j in range(3):
                                 for k in range(3):
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
-            self.vorticity.update({t:{'raw': v, 
-                                      'mag': np.sqrt(np.sum(v**2, axis = 0))}})
+            self.vorticity.update({t: v})
             
     
-    def QuiverPlotSingle(self, direction, sliceNo, xinterval, yinterval, scale2 = 0.0001, pos = [2, 1, 0.5, 0.5], saveName = None, savePath = None): 
+    def QuiverPlotSingle(self, direction, sliceNo, saveName = None, savePath = None): 
         import matplotlib.pyplot as plt
         import matplotlib as mpl
         from matplotlib import cm
@@ -387,8 +382,6 @@ class Lamni():
         arr = {}
         quiverComps = {}
         if direction == 'x':
-            xinterval = 1
-            yinterval = 5
             shape = []
             comps = {}
             c = (2,0)
@@ -399,8 +392,6 @@ class Lamni():
 
             scale = 0.3*200/shape[:,0]
         elif direction == 'y': 
-            xinterval = 1
-            yinterval = 5
             shape = []
             comps = {}
             c = (2,0)
@@ -411,8 +402,6 @@ class Lamni():
             
             scale = 0.3*200/shape[:,0]
         elif direction == 'z':
-            xinterval = 6
-            yinterval = 6
             shape = []
             comps = {}
             c = (0,1)
@@ -453,10 +442,10 @@ class Lamni():
         norm = mpl.colors.Normalize(-np.pi, np.pi)
         if direction == 'z':
             ll, bb, ww, hh = ax.get_position().bounds
-            display_axes.set_position([pos[0]*ll, pos[1]*bb, pos[2]*ww, pos[3]*hh])
+            display_axes.set_position([1.7*ll, bb, 0.2*ww, 0.2*hh])
         else: 
             ll, bb, ww, hh = ax.get_position().bounds
-            display_axes.set_position([pos[0]*ll, pos[1]*bb, pos[2]*ww, pos[3]*hh])
+            display_axes.set_position([ll*2, 0.95*bb, 0.5*ww, 0.5*hh])
         quant_steps = 2056
         cb = mpl.colorbar.ColorbarBase(display_axes, cmap=cm.get_cmap(cmap,quant_steps),
                                        norm=norm,
@@ -470,5 +459,5 @@ class Lamni():
             os.chdir(savePath)
             fig.savefig('{}.svg'.format(saveName), dpi=1200)
             os.chdir(here)
-    
+                                    
                 

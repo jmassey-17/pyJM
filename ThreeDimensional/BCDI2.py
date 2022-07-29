@@ -10,7 +10,7 @@ import glob
 import numpy as np
 from scipy.fftpack import ifftshift, fftshift, fft2
 
-from pyJM.BasicFunctions import imageViewer
+from pyJM.BasicFunctions import imageViewer, centreArray
 
 homedir = r'C:\Data\3D AF\NaOsO BEamtime\Analysed_JM'
 scan = 911811
@@ -45,12 +45,12 @@ class CDIResult:
         
         if t != None: 
             "Loaded as a series of objects"
-            self.rawData.update({scan: fftshift(np.load('rec_obj_{}.npy'.format(scan)))})
+            self.rawData.update({scan: centreArray(fftshift(np.load('rec_obj_{}.npy'.format(scan))))})
         
         else: 
             "Loaded as a single object"
             self.scan = scan
-            self.rawData = fftshift(np.load('rec_obj_{}.npy'.format(scan)))
+            self.rawData = centreArray(fftshift(np.load('rec_obj_{}.npy'.format(scan))))
             
         
     def __Threshold__(self, scan, threshValue, t = None): 
@@ -63,26 +63,27 @@ class CDIResult:
         """
         if t != None: 
             h = np.copy(self.rawData[scan], order = "C")
-            here = abs(h) > np.nanmax(h)*threshValue
+            here = abs(h) > np.nanmax(abs(h))*threshValue
             h[~here] = 0 
             here2 = np.where(np.sum(np.angle(h), axis = (0,1)) != 0)[0]
             self.thresholdedData.update({scan: h[...,here2]})
         else: 
             h = np.copy(self.reducedData, order = "C")
-            here = abs(h) > np.nanmax(h)*threshValue
+            here = abs(h) > np.nanmax(abs(h))*threshValue
             h[~here] = 0 
             here2 = np.where(np.sum(np.angle(h), axis = (0,1)) != 0)[0]
             self.thresholdedData = h[...,here2]
             
     def __Crop__(self): 
         p = np.where(abs(self.thresholdedData != 0))
-        bounds = [min(p[0]),max(p[0]), min(p[1]),max(p[1]), min(p[2]),max(p[2])]
+        bounds = [min(p[1]),max(p[1]), min(p[0]),max(p[0]), min(p[2]),max(p[2])]
         size = [int(bounds[1] - bounds[0]), 
                 int(bounds[3] - bounds[2]),
                 int(bounds[5] - bounds[4])]
         new = np.zeros(shape = size, dtype = self.thresholdedData.dtype)
         new[:int(bounds[1]-bounds[0]),:int(bounds[3]-bounds[2]),:int(bounds[5]-bounds[4])] = self.thresholdedData[bounds[0]:bounds[1], bounds[2]:bounds[3], bounds[4]:bounds[5]]
-        self.cropped = new
+        self.cropped = centreArray(new)
+        self.mask = abs(centreArray(new)) > 0
         
     def SliceViewer(self, keyWord, sliceNo, direction): 
         imageViewer(getattr(self, keyWord), sliceNo, direction)
@@ -90,9 +91,9 @@ class CDIResult:
     def __PhaseUnwrap__(self, scan, t = None): 
         from skimage.restoration import unwrap_phase
         if t != None: 
-            self.unwrapped.update({scan: unwrap_phase(np.angle(self.cropped[scan]))})
+            self.unwrapped.update({scan: unwrap_phase(np.angle(self.cropped[scan]))*self.mask[scan]})
         else: 
-            self.unwrapped = unwrap_phase(np.angle(self.cropped))
+            self.unwrapped = unwrap_phase(np.angle(self.cropped))*self.mask
         
 class CDIResults(CDIResult): 
     def __init__(self, scans, homedir, folderSignature, threshDict):
@@ -113,19 +114,23 @@ class CDIResults(CDIResult):
         i = 0
         for scan in self.scans: 
             p = np.where(abs(self.thresholdedData[scan] != 0))
-            bounds[i,:] = min(p[0]),max(p[0]), min(p[1]),max(p[1]), min(p[2]),max(p[2])
+            bounds[i,:] = min(p[1]),max(p[1]), min(p[0]),max(p[0]), min(p[2]),max(p[2])
             i += 1
-            size = [int(max(bounds[:, 1])- min(bounds[:, 0])),
-                    int(max(bounds[:, 3])- min(bounds[:, 2])),
-                    int(max(bounds[:, 5])- min(bounds[:, 4]))]
+        size = [int(max(bounds[:, 1]) - min(bounds[:, 0])),
+                int(max(bounds[:, 3]) - min(bounds[:, 2])),
+                int(max(bounds[:, 5]) - min(bounds[:, 4]))]
+        print(size, bounds)
         i = 0
         cropped = {}
+        mask = {}
         for scan in self.scans: 
             new = np.zeros(shape = size, dtype = self.thresholdedData[scan].dtype)
             new[:int(bounds[i,1]-bounds[i,0]),:int(bounds[i,3]-bounds[i,2]),:int(bounds[i,5]-bounds[i,4])] = self.thresholdedData[scan][bounds[i,0]:bounds[i,1], bounds[i,2]:bounds[i,3], bounds[i,4]:bounds[i,5]]
             cropped.update({scan: new})
+            mask.update({scan: abs(new)  > 0})
             i += 1
         self.cropped = cropped
+        self.mask = mask
         
             
             
