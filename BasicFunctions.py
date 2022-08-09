@@ -125,3 +125,26 @@ def ScaleBarCalculator(x, y, reference, scaleBarSize):
     d = np.sqrt(x**2 + y**2) #per mm
     ratio = d/reference
     return ratio*scaleBarSize
+
+def FFTFilter(array, sliceToFilter, component, r, passType = 'high'): 
+    array = np.copy(array[component, ..., sliceToFilter])
+    init = np.fft.fftshift(np.fft.fftn(array))
+    xx, yy = np.meshgrid(np.arange(array.shape[1]), np.arange(array.shape[0]))
+    cen = [int(array.shape[1]/2), int(array.shape[0]/2)]
+    rad = np.sqrt((xx-cen[0])**2 + (yy-cen[1])**2) < r
+    "low pass filter"
+    if passType == 'low': 
+        init[~rad] = 0
+    elif passType == 'high': 
+        init[rad] = 0
+    else: 
+        print('passType must be either high or low')
+    ifft = np.fft.ifftn(init)
+    return ifft
+
+def standardDeviationMap(array, window): 
+    stddev = np.zeros_like(array)
+    for i in range(window, array.shape[0]-window): 
+        for j in range(window, array.shape[1]-window): 
+            stddev[i,j] = np.stddev(array[i-window:i+window, j-window, j+window])
+    return stddev
