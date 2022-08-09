@@ -147,9 +147,14 @@ class LamniMulti(Lamni):
         for t in list(self.magProcessed.keys()): 
             super().saveParaview(self, savePath, t) 
     
-    def calculateVorticity(self): 
+    def calculateVorticity(self, attribute): 
         """Calculates magnetic vorticity for each temperature"""
         self.vorticity = {}
         for t in list(self.magProcessed.keys()): 
-            super().CalculateVorticity(t)
+            super().CalculateVorticity(attribute, t)
+            
+    def filterAttribute(self, attribute, sigma): 
+        self.filtered = {}
+        for t in list(self.magProcessed.keys()): 
+            super().filterAttribute(attribute, sigma, t)
         

@@ -344,12 +344,14 @@ class Lamni():
         else: 
             mesh.save("{}_paraview.vtk".format(dateToSave(time = True)))
             
-    def CalculateVorticity(self, t = None): 
+    def CalculateVorticity(self, attritube, t = None):
         """Calculates magnetic vorticity"""
         if t == None: 
-            mx = self.magProcessed[0]/self.mag
-            my = self.magProcessed[1]/self.mag
-            mz = self.magProcessed[2]/self.mag
+            array = getattr(self, attribute)
+            arrayMag = np.sqrt(array[0]**2 + array[1]**2 + array[2]**2)
+            mx = array[0]/arrayMag
+            my = array[1]/arrayMag
+            mz = array[2]/arrayMag
             m = np.array([mx, my, mz])
             v = np.zeros_like(m)
             for a in range(3):
@@ -361,10 +363,12 @@ class Lamni():
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
             self.vorticity = v
             self.vorticityMag = np.sqrt(np.sum(v**2, axis = 0))
-        else: 
-            mx = self.magProcessed[t][0]/self.mag[t]
-            my = self.magProcessed[t][1]/self.mag[t]
-            mz = self.magProcessed[t][2]/self.mag[t]
+        else:
+            array = getattr(self, attribute)[t]
+            arrayMag = np.sqrt(array[0]**2 + array[1]**2 + array[2]**2)
+            mx = array[0]/arrayMag
+            my = array[1]/arrayMag
+            mz = array[2]/arrayMag
             m = np.array([mx, my, mz])
             v = np.zeros_like(m)
             for a in range(3):
@@ -376,6 +380,28 @@ class Lamni():
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
             self.vorticity.update({t:{'raw': v, 
                                       'mag': np.sqrt(np.sum(v**2, axis = 0))}})
+            
+    def filterAttribute(self, attribute, sigma, t = None):
+        from scipy.ndimage import gaussian_filter
+        if t == None: 
+            array = np.copy(getattr(self, attribute))
+            filtered = np.zeros_like(array)
+            for k in range(array.shape[3]): 
+                filtered[ ..., k] = np.array([gaussian_filter(array[0,...,k], sigma), 
+                                              gaussian_filter(array[1,...,k], sigma), 
+                                              gaussian_filter(array[2,...,k], sigma)])
+                                              
+            self.filtered = filtered
+        else: 
+            array = getattr(self, attribute)[t]
+            filtered = np.zeros_like(array)
+            for k in range(array.shape[3]): 
+                filtered[ ..., k] = np.array([gaussian_filter(array[0,...,k], sigma), 
+                                              gaussian_filter(array[1,...,k], sigma), 
+                                              gaussian_filter(array[2,...,k], sigma)])
+            self.filtered.update({t: filtered})
+        
+        
             
     
     def QuiverPlotSingle(self, direction, sliceNo, xinterval, yinterval, scale2 = 0.0001, pos = [2, 1, 0.5, 0.5], saveName = None, savePath = None): 
