@@ -7,8 +7,7 @@ Created on Mon May  9 08:50:25 2022
 import os
 import glob
 import numpy as np
-import csv
-import threading
+
 
 import scipy
 import scipy.io
@@ -19,41 +18,7 @@ import matplotlib.pyplot as plt
 
 
 from pyJM.BasicFunctions import *
-from pyJM.ThreeDimensional.GUIClasses import *
-
-"""Do a proper plan of how to incorporate the GUI classes and the parameters file for previous measurements """
-
-# paramDict = {'300': {'H or C': 'C', 
-#                      'Rot': -20, 
-#                      'Box': [75, 215, 40, 215], 
-#                      'thresh': 0.3, 
-#                      'thetaoffset': 0},
-#              '310': {'H or C': 'H', 
-#                      'Rot': 20, 
-#                      'Box': [75, 230, 25, 210], 
-#                      'thresh': 0.3, 
-#                      'thetaoffset': 4},
-#              '330': {'H or C': 'C', 
-#                      'Rot': -20, 
-#                      'Box': [70, 215, 45, 215], 
-#                      'thresh': 0.08, 
-#                      'thetaoffset': 0},
-#              '335': {'H or C': 'H', 
-#                      'Rot': 20, 
-#                      'Box': [60, 220, 35, 210], 
-#                      'thresh': 0.2, 
-#                      'thetaoffset': 5},
-#              '375': {'H or C': 'H', 
-#                      'Rot': 23, 
-#                      'Box': [65, 220, 40, 220], 
-#                      'thresh': 0.1, 
-#                      'thetaoffset': 5},
-#              '440': {'H or C': 'C', 
-#                      'Rot': -28, 
-#                      'Box': [90, 235, 50, 230], 
-#                      'thresh': 0.3, 
-#                      'thetaoffset': 24},
-#              }           
+from pyJM.ThreeDimensional.GUIClasses import *      
       
 class Lamni(): 
     
@@ -61,7 +26,7 @@ class Lamni():
     from the Donnelly matlab reconstruction code.
     - will work as a single or as part of the LamniMulti
     """
-    def __init__(self, file, homedir, paramDict, t=None):
+    def __init__(self, file, homedir, paramDict, arraySize = 200, t=None):
         
         """Initial loading in procedure
         inputs:
@@ -124,8 +89,9 @@ class Lamni():
                 boxTest[2] = int(input("Enter the ylow estimate: "))
                 boxTest[3] = int(input("Enter the  estimate: "))
                 fig, ax = plt.subplots(1,2, num = 1)
-                ax[0].imshow(abs(self.rawMag[0,...,0]))
-                ax[1].imshow(abs(self.rawMag[0,boxTest[2]:boxTest[3], boxTest[0]:boxTest[1], 0]))
+                cropTest = scipy.ndimage.rotate(abs(self.rawMag[0,...,0]), paramDict['Rot'], reshape = False)
+                ax[0].imshow(cropTest)
+                ax[1].imshow(cropTest[boxTest[2]:boxTest[3], boxTest[0]:boxTest[1]])
                 fig.canvas.draw()
                 plt.pause(0.05)
                 happy = input('Happy? y or n: ')
@@ -137,6 +103,8 @@ class Lamni():
                 threshTest = float(input("Enter the threshold estimate as percentage of max: "))
                 fig, ax = plt.subplots(1,2, num = 1)
                 mag = np.sqrt(np.sum(abs(self.rawMag**2), axis = 0))
+                mag = scipy.ndimage.rotate(mag, paramDict['Rot'], reshape = False)
+                mag = mag[paramDict['Box'][2]:paramDict['Box'][3], paramDict['Box'][0]:paramDict['Box'][1], :]
                 ax[0].imshow(np.sum(abs(mag), axis = 2))
                 ax[1].imshow(np.sum(abs(mag) > np.amax(abs(mag))*threshTest, axis = 2))
                 fig.canvas.draw()
@@ -166,7 +134,7 @@ class Lamni():
             """Standalone"""
             self.rec = rec
             self.temp = str(file[:3])
-            self.generateMagneticArray(self.Params[str(file[:3])]['Box'], self.Params[str(file[:3])]['thresh'])
+            self.generateMagneticArray(self.Params[str(file[:3])]['Box'], self.Params[str(file[:3])]['thresh'], arraySize)
             self.magneticDomains()
             if 'theta_use' in list(r.keys()) == True: #FeRh experiment
                 self.theta = r['theta_use'][0][::2]
@@ -182,20 +150,26 @@ class Lamni():
             
         
         
-    def generateMagneticArray(self, b, thresh, sampleArea = 20000, outline = False, t=None): 
+    def generateMagneticArray(self, b, thresh, arraySize, sampleArea = 20000, outline = False, t=None): 
         """Processed both the mag and charge by cropping to Params['box'] 
         and Thresholding to Params['thresh']"""
         if t != None: 
             m = self.recDict['{}'.format(t)]['mag']
             c = self.recDict['{}'.format(t)]['charge']
-            box = self.Params['{}'.format(t)]['Box']
+            b = self.Params['{}'.format(t)]['Box']
         else: 
             m = self.rec['mag']
             c = self.rec['charge']
-            box = self.Params[self.t]['Box']
+            b = self.Params[self.t]['Box']
             
-        mNew = m[:,box[2]:box[3], box[0]:box[1], :]
-        cNew = c[box[2]:box[3], box[0]:box[1], :]
+        """Crop the arrays, need to be centered"""
+        
+        mNew = np.zeros(shape = (3, arraySize, arraySize, m.shape[3]))
+        cNew = np.zeros(shape = (arraySize, arraySize, m.shape[3]))
+        dims = [int(b[3]-b[2]), int(b[1]-b[0])]
+        mNew[:, int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = m[:, b[2]:b[3], b[0]:b[1], :]
+        cNew[int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), 
+             int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = c[b[2]:b[3], b[0]:b[1], :]
         mag = np.sqrt(mNew[0]**2 + mNew[1]**2 + mNew[2]**2)
         
         if outline == True: 
@@ -241,17 +215,30 @@ class Lamni():
             self.chargeProcessed = cNew
             self.sampleOutline = outline
             
-    def volumeCalc(self, t = None):
+    def volumeCalc(self, box = None, t = None):
         """Estimates the volume using the magMasks and the sample outline"""
         if t != None: 
-            vol = {'volume': np.sum(self.magMasks['{}'.format(t)] == 1)/np.sum(self.sampleOutline['{}'.format(t)]), 
-              'error': np.sum(self.magMasks['{}'.format(t)] == 1)/np.sum(self.sampleOutline['{}'.format(t)])*np.sqrt(1/np.sum(self.magMasks['{}'.format(t)] == 1) + 1/np.sum(self.sampleOutline['{}'.format(t)]))
-              }
+            if box == None: 
+                vol = {'volume': np.sum(self.magMasks['{}'.format(t)] == 1)/np.sum(self.sampleOutline['{}'.format(t)]), 
+                  'error': np.sum(self.magMasks['{}'.format(t)] == 1)/np.sum(self.sampleOutline['{}'.format(t)])*np.sqrt(1/np.sum(self.magMasks['{}'.format(t)] == 1) + 1/np.sum(self.sampleOutline['{}'.format(t)]))
+                  }
+                
+            else: 
+                temp = self.magMasks['{}'.format(t)][box[2]:box[3], box[0]:box[1],:]
+                vol = {'volume': np.sum(temp == 1)/temp.ravel().shape[0],
+                  'error': np.sum(temp == 1)/np.sum(temp.ravel().shape[0])*np.sqrt(1/np.sum(temp == 1) + 1/np.sum(temp.ravel().shape[0]))
+                  }
             self.volume.update({'{}'.format(t): vol})
         else: 
-            vol = {'volume': np.sum(self.magMasks == 1)/np.sum(self.sampleOutline), 
-              'error': np.sum(self.magMasks == 1)/np.sum(self.sampleOutline)*np.sqrt(1/np.sum(self.magMasks == 1) + 1/np.sum(self.sampleOutline))
-              }
+            if box == None: 
+                vol = {'volume': np.sum(self.magMasks == 1)/np.sum(self.sampleOutline), 
+                       'error': np.sum(self.magMasks == 1)/np.sum(self.sampleOutline)*np.sqrt(1/np.sum(self.magMasks == 1) + 1/np.sum(self.sampleOutline))
+                       }
+            else: 
+                temp = self.magMasks[box[2]:box[3], box[0]:box[1],:]
+                vol = {'volume': np.sum(temp == 1)/temp.ravel().shape[0],
+                  'error': np.sum(temp == 1)/np.sum(temp.ravel().shape[0])*np.sqrt(1/np.sum(temp == 1) + 1/np.sum(temp.ravel().shape[0]))
+                  }
             self.volume.update({'{}'.format(t): vol})
             
     def calcCurl(self, t = None): 
@@ -309,14 +296,35 @@ class Lamni():
             self.magDomains = np.array([mxFin, myFin, mzFin])
             
     def saveParaview(self, savePath, t = None): 
+        import pyvista as pv
         if t != None: 
             mx = self.magProcessed['{}'.format(t)][0]
             my = self.magProcessed['{}'.format(t)][1]
             mz = self.magProcessed['{}'.format(t)][2]
+            filtered = 0
+            try: 
+                getattr(self, 'filtered')
+                filtered = 1
+            except: 
+                pass
+            if filtered != 0: 
+                mxFiltered = self.filtered['{}'.format(t)][0]
+                myFiltered = self.filtered['{}'.format(t)][1]
+                mzFiltered = self.filtered['{}'.format(t)][2]
         else: 
             mx = self.magProcessed[0]
             my = self.magProcessed[1]
             mz = self.magProcessed[2]
+            filtered = 0
+            try: 
+                getattr(self, 'filtered')
+                filtered = 1
+            except: 
+                pass
+            if filtered != 0: 
+                mxFiltered = self.filtered[0]
+                myFiltered = self.filtered[1]
+                mzFiltered = self.filtered[2]
             
         values = np.arange(mx.shape[0]*mx.shape[1]*mx.shape[2]).reshape(mx.shape)
         mesh = pv.UniformGrid()
@@ -334,17 +342,24 @@ class Lamni():
         mesh.cell_arrays["mx"] = mx.flatten(order="F")
         mesh.cell_arrays["my"] = my.flatten(order="F")
         mesh.cell_arrays["mz"] = mz.flatten(order="F")
-        mesh.cell_arrays["mag"] = magDict['{}'.format(t)].flatten(order="F")
+        mag = np.sqrt(mx**2 + my**2 + mz**2)
+        mesh.cell_arrays["mag"] = mag.flatten(order="F")
         mesh.cell_arrays["mag_vector"] = np.array([mx.flatten(order="F"), my.flatten(order="F"), mz.flatten(order="F")]).T
+        
+        if filtered != 0: 
+            mesh.cell_arrays["filteredMx"] = mxFiltered.flatten(order="F")
+            mesh.cell_arrays["filteredMy"] = myFiltered.flatten(order="F")
+            mesh.cell_arrays["filteredMz"] = mzFiltered.flatten(order="F")
+            magFiltered = np.sqrt(mxFiltered**2 + myFiltered**2 + mzFiltered**2)
+            mesh.cell_arrays["mag"] = magFiltered.flatten(order="F")
+            mesh.cell_arrays["mag_vector"] = np.array([mxFiltered.flatten(order="F"), myFiltered.flatten(order="F"), mzFiltered.flatten(order="F")]).T
     
 
         os.chdir(savePath)
-        if self.recDict != None: 
-            mesh.save("{}K_{}_paraview.vtk".format(t, dateToSave(time = True)))
-        else: 
-            mesh.save("{}_paraview.vtk".format(dateToSave(time = True)))
+        mesh.save("{}K_{}_paraview.vtk".format(t, dateToSave(time = True)))
+        
             
-    def CalculateVorticity(self, attritube, t = None):
+    def CalculateVorticity(self, attribute, t = None):
         """Calculates magnetic vorticity"""
         if t == None: 
             array = getattr(self, attribute)
@@ -363,6 +378,10 @@ class Lamni():
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
             self.vorticity = v
             self.vorticityMag = np.sqrt(np.sum(v**2, axis = 0))
+            div = 0
+            for i in (0,1,2):
+                div += np.gradient(v[i], axis = i)
+            self.vorticityDivergence = div
         else:
             array = getattr(self, attribute)[t]
             arrayMag = np.sqrt(array[0]**2 + array[1]**2 + array[2]**2)
@@ -378,8 +397,12 @@ class Lamni():
                             for j in range(3):
                                 for k in range(3):
                                     v[a] += E(a,b,c)*E(i,j,k)*m[i]*np.gradient(m[j], axis = b)*np.gradient(m[k], axis = c)
+            div = 0
+            for i in (0,1,2):
+                div += np.gradient(v[i], axis = i)
             self.vorticity.update({t:{'raw': v, 
-                                      'mag': np.sqrt(np.sum(v**2, axis = 0))}})
+                                      'mag': np.sqrt(np.sum(v**2, axis = 0)), 
+                                      'div': div}})
             
     def filterAttribute(self, attribute, sigma, t = None):
         from scipy.ndimage import gaussian_filter
@@ -400,6 +423,16 @@ class Lamni():
                                               gaussian_filter(array[1,...,k], sigma), 
                                               gaussian_filter(array[2,...,k], sigma)])
             self.filtered.update({t: filtered})
+            
+    def preImage(self, attribute, component, level): 
+        array = getattr(self, attribute)[component]
+        arrayRound = np.round(array, 1)
+        preimage = np.zeros_like(arrayRound)
+        pos = arrayRound == level
+        neg = arrayRound == -level
+        preimage[pos] = 1
+        preimage[neg] = -1
+        self.preImage = preimage
         
         
             
@@ -496,5 +529,92 @@ class Lamni():
             os.chdir(savePath)
             fig.savefig('{}.svg'.format(saveName), dpi=1200)
             os.chdir(here)
-    
+            
+    def countPixelDirection(self, binNo = 36, t = None): 
+        if t != None: 
+            array = self.magProcessed[t]
+            a = np.arctan2(array[1], array[0])
+            at = a[a != 0]
+            hist, bins = np.histogram(at, binNo)
+            self.direction.update({t: {'bins': bins[1:], 
+                              'counts': hist}})
+        else: 
+            array = self.magProcessed
+            a = np.arctan2(array[1], array[0])
+            at = a[a != 0]
+            hist, bins = np.histogram(at, binNo)
+            self.direction = {'bins': bins[1:], 
+                              'counts': hist}
+            
+    def plotVectorField(self, field, inplaneSkip = 0, outofplaneSkip = 0):
+        import pyvista as pv
+        f = getattr(self, field)
+        vector_field = f/np.sqrt(np.sum(f**2, axis = 0))
+        if inplaneSkip != 0: 
+            vector_field = vector_field[:, ::inplaneSkip, ::inplaneSkip, :]
+        if outofplaneSkip != 0: 
+            vector_field = vector_field[:,..., ::outofplaneSkip]
+            
+        _, nx, ny, nz = vector_field.shape
+        size = vector_field[0].size
+
+        origin = (-(nx - 1) * 1 / 2, -(ny - 1) * 1 / 2, -(nz - 1) * 1 / 2)
+        mesh = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
+
+        mesh['vectors'] = vector_field[0:3].T.reshape(size, 3)
+        mesh['my'] = mesh['vectors'][:, 2]
+
+        # # remove some values for clarity
+        num_arrows = mesh['vectors'].shape[0]
+        rand_ints = np.random.choice(num_arrows - 1, size=int(num_arrows - 2*num_arrows / np.log(num_arrows + 1)),
+                                     replace=False)
+
+        mesh['vectors'][rand_ints] = 0
+        mesh['scalars'] = mesh['vectors'][:, 2]
+
+
+        mesh['vectors'][rand_ints] = np.array([0, 0, 0])
+        arrows = mesh.glyph(factor=2, geom=pv.Arrow())
+        pv.set_plot_theme("document")
+        p = pv.Plotter()
+        p.add_mesh(arrows, scalars='my', lighting=False, cmap='twilight_shifted')
+        p.show_grid()
+        p.add_bounding_box()
+
+        y_down = [(0, 80, 0),
+                  (0, 0, 0),
+                  (0, 0, -90)]
+        p.show(cpos=y_down)
+        
+    def plotScalarField(self, field): 
+        scalar_field = getattr(self, field)
+        nx, ny, nz = scalar_field.shape
+        size = scalar_field[0].size
+        
+        origin = (-(nx - 1) * 1 / 2, -(ny - 1) * 1 / 2, -(nz - 1) * 1 / 2)
+        mesh = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
+        
+        mesh['scalars'] = scalar_field.flatten(order = "F")
+        
+        
+        # # remove some values for clarity
+        num_arrows = mesh['scalars'].shape[0]
+        rand_ints = np.random.choice(num_arrows - 1, size=int(num_arrows - 2*num_arrows / np.log(num_arrows + 1)),
+                                     replace=False)
+        
+        pv.set_plot_theme("document")
+        p = pv.Plotter()
+        p.add_mesh(mesh, scalars=mesh['scalars'], lighting=False, cmap='twilight_shifted')
+        p.show_grid()
+        p.add_bounding_box()
+        
+        y_down = [(0, 80, 0),
+                  (0, 0, 0),
+                  (0, 0, -90)]
+        p.show(cpos=y_down)
+                    
                 
+                
+                
+            
+                        

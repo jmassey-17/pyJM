@@ -110,6 +110,20 @@ def makeFolder(folderName, savedir):
         os.chdir(path)
         
 def imageViewer(array, sliceNo, direction): 
+    """
+    
+
+    Parameters
+    ----------
+    array : array 
+    sliceNo : sliceNo to view
+    direction : 'x', 'y' or 'z'
+
+    Returns
+    -------
+    image
+
+    """
     a = np.copy(array, order = "C")
     import matplotlib.pyplot as plt
     if a.dtype == 'complex64': 
@@ -148,3 +162,12 @@ def standardDeviationMap(array, window):
         for j in range(window, array.shape[1]-window): 
             stddev[i,j] = np.stddev(array[i-window:i+window, j-window, j+window])
     return stddev
+
+def circle(array, size, centre = None): 
+    if centre == None: 
+        centre = [int(array.shape[0]/2), int(array.shape[1]/2)]
+    yy, xx = np.meshgrid(np.arange(array.shape[0]), np.arange(array.shape[1]))
+    yy = yy - centre[0]
+    xx = xx - centre[1]
+    mask = np.sqrt((xx)**2 + yy**2) < size
+    return mask

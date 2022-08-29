@@ -157,4 +157,9 @@ class LamniMulti(Lamni):
         self.filtered = {}
         for t in list(self.magProcessed.keys()): 
             super().filterAttribute(attribute, sigma, t)
+    
+    def calculateDirectionHistorgrams(self, binNo = 36): 
+        self.direction = {}
+        for t in list(self.magProcessed.keys()): 
+            super().countPixelDirection(binNo, t)
         
