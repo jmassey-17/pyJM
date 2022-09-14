@@ -59,7 +59,9 @@ files = [file for file in files if len(file) < 7]
         
 
 
-rec = Lamni.Lamni(files[-6], homedir, paramDict = paramDict)
+rec = Lamni.Lamni(files[5], homedir, paramDict = paramDict)
 rec.calcCurl()
 rec.CalculateVorticity('magProcessed')
+rec.countPixelDirection()
+plt.plot(rec.direction['bins'], rec.direction['counts'])
 

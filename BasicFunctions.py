@@ -160,7 +160,7 @@ def standardDeviationMap(array, window):
     stddev = np.zeros_like(array)
     for i in range(window, array.shape[0]-window): 
         for j in range(window, array.shape[1]-window): 
-            stddev[i,j] = np.stddev(array[i-window:i+window, j-window, j+window])
+            stddev[i,j] = np.std(array[i-window:i+window, j-window: j+window])
     return stddev
 
 def circle(array, size, centre = None): 

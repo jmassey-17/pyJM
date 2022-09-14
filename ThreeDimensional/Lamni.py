@@ -425,14 +425,15 @@ class Lamni():
             self.filtered.update({t: filtered})
             
     def preImage(self, attribute, component, level): 
-        array = getattr(self, attribute)[component]
-        arrayRound = np.round(array, 1)
+        array = getattr(self, attribute)
+        array = array/np.sqrt(np.sum(array**2, axis = 0))
+        arrayRound = np.round(array[component], 1)
         preimage = np.zeros_like(arrayRound)
         pos = arrayRound == level
         neg = arrayRound == -level
         preimage[pos] = 1
         preimage[neg] = -1
-        self.preImage = preimage
+        self.preimage = preimage
         
         
             
@@ -546,9 +547,13 @@ class Lamni():
             self.direction = {'bins': bins[1:], 
                               'counts': hist}
             
-    def plotVectorField(self, field, inplaneSkip = 0, outofplaneSkip = 0):
+    def plotVectorField(self, field, box = None, inplaneSkip = 0, outofplaneSkip = 0):
         import pyvista as pv
-        f = getattr(self, field)
+        if box == None:
+            f = getattr(self, field)
+        else: 
+            f = getattr(self, field)[:, box[2]:box[3], box[0]:box[1], :]
+        
         vector_field = f/np.sqrt(np.sum(f**2, axis = 0))
         if inplaneSkip != 0: 
             vector_field = vector_field[:, ::inplaneSkip, ::inplaneSkip, :]
@@ -577,16 +582,17 @@ class Lamni():
         arrows = mesh.glyph(factor=2, geom=pv.Arrow())
         pv.set_plot_theme("document")
         p = pv.Plotter()
-        p.add_mesh(arrows, scalars='my', lighting=False, cmap='twilight_shifted')
-        p.show_grid()
-        p.add_bounding_box()
+        p.add_mesh(arrows, scalars='my', lighting=False, cmap='twilight_shifted', clim = [-1, 1])
+        #p.show_grid()
+        #p.add_bounding_box()
 
         y_down = [(0, 80, 0),
                   (0, 0, 0),
                   (0, 0, -90)]
         p.show(cpos=y_down)
         
-    def plotScalarField(self, field): 
+    def plotScalarField(self, field):
+        import pyvista as pv
         scalar_field = getattr(self, field)
         nx, ny, nz = scalar_field.shape
         size = scalar_field[0].size
@@ -612,6 +618,27 @@ class Lamni():
                   (0, 0, 0),
                   (0, 0, -90)]
         p.show(cpos=y_down)
+        
+    def plotCropQuiver(self, sliceNo, box, interval, secondWindowAttribute = 'vorticity', secondWindowComponent = 2, ):
+        cmap = 'twilight_shifted'
+        fig, ax = plt.subplots(1, 2,figsize = (12,6), sharex = 'all')
+        mx = self.magProcessed[0, box[2]:box[3], box[0]:box[1], sliceNo]
+        my = self.magProcessed[1, box[2]:box[3], box[0]:box[1], sliceNo]
+        x,y = np.meshgrid(np.arange(mx.shape[1]),
+                          np.arange(mx.shape[0]))
+        c = np.arctan2(my,mx)
+        ax[0].imshow(c, cmap = cmap, vmin = -np.pi, vmax = np.pi)
+        ax[0].quiver(x[::interval,::interval],y[::interval,::interval],mx[::interval,::interval], my[::interval,::interval], color = 'w', scale = 0.0001,
+                      scale_units='dots')
+        if getattr(self, secondWindowAttribute).ndim == 4: 
+            ax[1].imshow(getattr(self, secondWindowAttribute)[secondWindowComponent, 
+                                                              box[2]:box[3], 
+                                                              box[0]:box[1], 
+                                                              sliceNo],cmap = cmap)
+        elif getattr(self, secondWindowAttribute).ndim == 3: 
+            ax[1].imshow(getattr(self, secondWindowAttribute)[box[2]:box[3], 
+                                                              box[0]:box[1], 
+                                                              sliceNo],cmap = cmap)
                     
                 
                 
