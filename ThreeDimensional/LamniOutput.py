@@ -252,6 +252,7 @@ class LamniOutput(LamniMulti):
             fig.colorbar(bar, cax=cbar_ax)
             plt.savefig('{}_{}K_{}Degrees_bar.svg'.format(saveName, h, angle), dpi=1200)
             os.chdir(he)
+            
     def QuiverPlot(self, direction, sliceNo, saveName = None, savePath = None): 
         import matplotlib.pyplot as plt
         import matplotlib as mpl
@@ -333,8 +334,8 @@ class LamniOutput(LamniMulti):
         j = 0
         for h in self.coolScans:
             quiverKeys = list(quiverComps['{}'.format(h)].keys())
-            mx = -quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
-            my = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[1])]
+            mx = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[1])]
+            my = -quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
             m = abs(mx) > 0
 
             scale2 = 50*np.nanmean(abs(mx[np.nonzero(mx)]))
@@ -439,7 +440,7 @@ class LamniOutput(LamniMulti):
         i = 0
         for h in self.heatScans: 
             quiverKeys = list(quiverComps['{}'.format(h)].keys())
-            mx = -quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
+            mx = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
             my = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[1])]
             m = abs(mx) > 0 
             scale2 = 2e-1*np.nanmean(abs(mx[np.nonzero(mx)]))
@@ -464,7 +465,7 @@ class LamniOutput(LamniMulti):
         j = 0
         for h in self.coolScans:
             quiverKeys = list(quiverComps['{}'.format(h)].keys())
-            mx = -quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
+            mx = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[0])]
             my = quiverComps['{}'.format(h)]['{}'.format(quiverKeys[1])]
             m = abs(mx) > 0
 

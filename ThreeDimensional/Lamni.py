@@ -147,21 +147,32 @@ class Lamni():
                     self.projCalc = r['proj_mag']
                 except: 
                     print('No calculated projections found - carrying on without them')
+                    
+    def JM_FeRh_LamniSpecific_Single(self): 
+        """Processes specific to JM experiment
+            PLEASE REMOVE IF NEEDED"""
+        for i in range(3):
+            if i == 2:
+                self.magProcessed[i] = rotate(self.magProcessed[i], 180)
+            else: 
+                self.magProcessed[i] = -rotate(self.magProcessed[i], 180)
+
+        self.magMasks = rotate(self.magMasks, 180) 
             
         
         
     def generateMagneticArray(self, b, thresh, arraySize, sampleArea = 20000, outline = False, t=None): 
         """Processed both the mag and charge by cropping to Params['box'] 
         and Thresholding to Params['thresh']"""
-        if t != None: 
-            m = self.recDict['{}'.format(t)]['mag']
-            c = self.recDict['{}'.format(t)]['charge']
-            b = self.Params['{}'.format(t)]['Box']
-        else: 
+        if t == None: 
             m = self.rec['mag']
             c = self.rec['charge']
             b = self.Params[self.t]['Box']
-            
+        else: 
+            m = self.recDict['{}'.format(t)]['mag']
+            c = self.recDict['{}'.format(t)]['charge']
+            b = self.Params['{}'.format(t)]['Box']
+        
         """Crop the arrays, need to be centered"""
         
         mNew = np.zeros(shape = (3, arraySize, arraySize, m.shape[3]))
@@ -487,7 +498,7 @@ class Lamni():
 
          # Replace with plt.savefig if you want to save a file
         quiverKeys = list(comps.keys())
-        mx = -comps['{}'.format(quiverKeys[0])]
+        mx = comps['{}'.format(quiverKeys[0])]
         my = comps['{}'.format(quiverKeys[1])]
         m = abs(mx) > 0 
         scale2 = 2e-1*np.nanmean(abs(mx[np.nonzero(mx)]))
@@ -547,7 +558,7 @@ class Lamni():
             self.direction = {'bins': bins[1:], 
                               'counts': hist}
             
-    def plotVectorField(self, field, box = None, inplaneSkip = 0, outofplaneSkip = 0):
+    def plotVectorField(self, field, box = None,  inplaneSkip = 0, outofplaneSkip = 0):
         import pyvista as pv
         if box == None:
             f = getattr(self, field)
@@ -567,7 +578,7 @@ class Lamni():
         mesh = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
 
         mesh['vectors'] = vector_field[0:3].T.reshape(size, 3)
-        mesh['my'] = mesh['vectors'][:, 2]
+        mesh['mz'] = mesh['vectors'][:, 2]
 
         # # remove some values for clarity
         num_arrows = mesh['vectors'].shape[0]
@@ -582,7 +593,7 @@ class Lamni():
         arrows = mesh.glyph(factor=2, geom=pv.Arrow())
         pv.set_plot_theme("document")
         p = pv.Plotter()
-        p.add_mesh(arrows, scalars='my', lighting=False, cmap='twilight_shifted', clim = [-1, 1])
+        p.add_mesh(arrows, scalars='mz', lighting=False, cmap='twilight_shifted', clim = [-1, 1])
         #p.show_grid()
         #p.add_bounding_box()
 

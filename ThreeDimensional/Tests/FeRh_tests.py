@@ -32,7 +32,7 @@ paramDict = {'300': {'H or C': 'C',
               '330': {'H or C': 'C', 
                       'Rot': -20, 
                       'Box': [70, 215, 45, 215], 
-                      'thresh': 0.08, 
+                      'thresh': 0.1, 
                       'thetaoffset': 0},
               '335': {'H or C': 'H', 
                       'Rot': 20, 
@@ -56,12 +56,17 @@ homedir = r'C:\Data\FeRh\Reconstructions_All_20220425\wxmcd'
 os.chdir(homedir)
 files = glob.glob('*')
 files = [file for file in files if len(file) < 7]
-        
+
+from skimage.transform import rotate   
 
 
 rec = Lamni.Lamni(files[5], homedir, paramDict = paramDict)
-rec.calcCurl()
-rec.CalculateVorticity('magProcessed')
-rec.countPixelDirection()
-plt.plot(rec.direction['bins'], rec.direction['counts'])
+#for 440 K only
+for i in range(rec.magProcessed.shape[0]):
+    for j in range(rec.magProcessed.shape[-1]): 
+         rec.magProcessed[i, ...,j] = rotate(rec.magProcessed[i, ...,j], 180)
+#for 440 K only        
+#rec.magProcessed[0] = -rec.magProcessed[0]
+#rec.magProcessed[1]= -rec.magProcessed[1]
+
 

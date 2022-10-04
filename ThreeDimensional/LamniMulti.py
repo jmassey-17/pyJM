@@ -88,7 +88,7 @@ class LamniMulti(Lamni):
         self.chargeProcessed = {}
         self.sampleOutline = {}
         for t in list(self.Params.keys()):
-            super().generateMagneticArray(self.Params[t]['Box'], self.Params[t]['thresh'], t)
+            super().generateMagneticArray(self.Params[t]['Box'], self.Params[t]['thresh'], 200, outline = True, t = t)
         self.JM_FeRh_LamniSpecific()
         
     def zoomArrays(self): 
