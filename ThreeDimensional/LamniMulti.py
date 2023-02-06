@@ -162,4 +162,115 @@ class LamniMulti(Lamni):
         self.direction = {}
         for t in list(self.magProcessed.keys()): 
             super().countPixelDirection(binNo, t)
+            
+    def countDistribution(self): 
+        self.distribution = {}
+        for t in list(self.magProcessed.keys()): 
+            super().countDistribution(t)
+    
+    def domainAnalysis2(self, thresh = 10): 
+        self.domains2 = {}
+        self.domains2individual = {}
+        for t in list(self.magProcessed.keys()): 
+            super().domainAnalysis2(thresh, t)
+        self.finalizeDomain2Analysis()
         
+    def finalizeDomain2Analysis(self): 
+        import pandas as pd
+        temp_keys = list(self.domains2individual.keys())
+        final_fm_ind = pd.DataFrame(self.domains2individual[temp_keys[0]]['fm'])
+        final_af_ind = pd.DataFrame(self.domains2individual[temp_keys[0]]['af'])
+        final_fm_all = pd.DataFrame(self.domains2[temp_keys[0]]['fm'])
+        final_af_all = pd.DataFrame(self.domains2[temp_keys[0]]['af'])
+        for t in temp_keys[1:]:
+            final_fm_ind = final_fm_ind.append(self.domains2individual[t]['fm'])
+            final_af_ind = final_af_ind.append(self.domains2individual[t]['af'])
+            final_fm_all = final_fm_all.append(self.domains2[t]['fm'])
+            final_af_all = final_af_all.append(self.domains2[t]['af'])
+        final_fm_ind['temp'] = final_fm_ind['temp'].astype(np.float)
+        final_af_ind['temp'] = final_af_ind['temp'].astype(np.float)
+        final_fm_all['temp'] = final_fm_all['temp'].astype(np.float)
+        final_af_all['temp'] = final_af_all['temp'].astype(np.float)
+    
+
+        self.finalIndividualFM = final_fm_ind
+        self.finalIndividualAF = final_af_ind
+        self.finalFM = final_fm_all
+        self.finalAF = final_af_all
+        
+    def generateHeatCoolDataframe(self, attribute, scans, sortAttribute = 'temp'): 
+        df = getattr(self, attribute)
+        final = df[df[sortAttribute] == scans[0]]
+        for t in scans[1:]:
+           final = final.append(df[df[sortAttribute] == t])
+        self.sortedDF = final
+        self.sortedDFInfo = {'attr': attribute, 
+                             'scans': scans, 
+                             'sortedby': sortAttribute}
+        
+    def defineSizes(self): 
+        sizes = {}
+        for t in list(self.magProcessed.keys()): 
+            d = self.sampleOutline[t] 
+            x = len(np.nonzero(d[100,:,0])[0])
+            y = len(np.nonzero(d[:,100,0])[0])
+            z = d.shape[2]
+            vol = np.sum(d)
+            sizes.update({t: [6700/x, 8000/y, 145/z, vol]})
+
+        self.sizes = sizes
+        
+    def generateFinalDataframe(self, attrs, scans = [[310,335,375], [300, 330, 440]], 
+                               labels1 = ['fm','af'],
+                               labels2 = {310: 'heat', 300: 'cool'}): 
+        lfin = {}
+        for a,l in zip(attrs, labels1): 
+            lfin.update({a: l})
+        
+        finals = {}
+
+        for a in attrs:
+            for s in scans: 
+                 self.generateHeatCoolDataframe(a, s)
+                 finals.update({'{}_{}'.format(lfin[a], labels2[s[0]]): self.sortedDF})
+        
+        self.defineSizes()
+        
+        for key in list(finals.keys()):
+            df = finals[key]
+            df['xnew'] = df.apply(lambda row: abs(row['bbox-3']-row['bbox-0'])*self.sizes['{}'.format(int(row['temp']))][1], axis = 1)
+            df['ynew'] = df.apply(lambda row: abs(row['bbox-4']-row['bbox-1'])*self.sizes['{}'.format(int(row['temp']))][0], axis = 1)
+            df['znew'] = df.apply(lambda row: abs(row['bbox-5']-row['bbox-2'])*self.sizes['{}'.format(int(row['temp']))][2], axis = 1)
+            df['volnew'] = df.apply(lambda row: row['area']/self.sizes['{}'.format(int(row['temp']))][3], axis = 1)
+            df['both'] = df.apply(lambda row: (row['top'] == True)*(row['bottom'] == True), axis = 1)
+            df['neither'] = df.apply(lambda row: (row['top'] == False)*(row['bottom'] == False), axis = 1)
+            df['either'] = df.apply(lambda row: 1-row['neither'], axis = 1)
+        
+        self.finals = finals
+        
+    def generateProbability(self, array, categories): 
+        out = [np.sum(self.finals[array][cat] > 0)/len(self.finals[array][cat]) for cat in categories]
+        outerr = [np.sum(self.finals[array][cat] > 0)/len(self.finals[array][cat])*np.sqrt(1/np.sum(self.finals[array][cat] > 0) + 1/len(self.finals[array][cat])) for cat in categories]
+        self.probs = [categories, out, outerr]
+        
+    def calcDistributions(self): 
+        self.distributions = {}
+        for t in list(self.magProcessed.keys()): 
+            super().calcDistributions(t)
+        print('Distributions calculated successfully')
+    
+    def calcAsym(self): 
+        self.asym = {}
+        for t in list(self.magProcessed.keys()): 
+            super().calcAsymmetries(t)
+        print('Asymmetries calculated successfully')
+        
+    def saveAsym(self, savePath, fileName = None, key = 'fm'): 
+        for t in list(self.magProcessed.keys()): 
+            super().saveAsym(savePath, fileName, key, t)
+        print(f'Asymmetries saved in {savePath}')
+        
+    def saveDistribution(self, savePath, fileName = None, key = 'fm'): 
+        for t in list(self.magProcessed.keys()): 
+            super().saveDistribution(savePath, fileName, key, t)
+        print(f'Distributions saved in {savePath}')

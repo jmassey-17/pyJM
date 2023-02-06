@@ -11,7 +11,7 @@ from pyJM.ThreeDimensional.Lamni import *
 from pyJM.BasicFunctions import *
 
 
-homedir = r'C:\Data\3D Skyrmion\PtPdMnSn\Raw_20220805'
+homedir = r'C:\Data\3D Skyrmion\PtPdMnSn\Filtered_20220805'
 os.chdir(homedir)
 files = glob.glob('*')
 
@@ -35,7 +35,7 @@ paramDict =  {'891' : {'H or C': 'H',
             
 #paramDict = None
 savePath = r'C:\Data\3D Skyrmion\PtPdMnSn'
-recs = Lamni(files[0], homedir, paramDict, 300)
+recs = Lamni(files[1], homedir, paramDict, 300)
 recs.filterAttribute('magProcessed', 6)
 #recs.saveParaview(savePath)
 # recs.QuiverPlotSingle('x', 100, 10, 10, scale2 = 0.0001, pos = [-.9,1, 0.5, 0.5])
@@ -64,14 +64,14 @@ rand_ints = np.random.choice(num_arrows - 1, size=int(num_arrows - 2*num_arrows 
                               replace=False)
 
 mesh['vectors'][rand_ints] = 0
-#mesh['scalars'] = mesh['vectors'][:, 2]
+mesh['scalars'] = -np.arctan2(mesh['vectors'][:, 0], mesh['vectors'][:,1])
 
 
 mesh['vectors'][rand_ints] = np.array([0, 0, 0])
 arrows = mesh.glyph(factor=2, geom=pv.Arrow())
 pv.set_plot_theme("document")
 p = pv.Plotter()
-p.add_mesh(arrows, scalars='my', lighting=False, cmap='viridis')
+p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted')
 p.show_grid()
 p.add_bounding_box()
 

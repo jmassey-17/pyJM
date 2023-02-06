@@ -12,8 +12,8 @@ from scipy.fftpack import ifftshift, fftshift, fft2
 
 from pyJM.BasicFunctions import imageViewer, centreArray
 
-homedir = r'C:\Data\3D AF\NaOsO BEamtime\Analysed_JM'
-scan = 911811
+# homedir = r'C:\Data\3D AF\NaOsO BEamtime\Analysed_JM'
+# scan = 911811
 class CDIResult:
     """Class for easy analysis of the results of pynx reconstructions"""
     
@@ -68,7 +68,7 @@ class CDIResult:
             here2 = np.where(np.sum(np.angle(h), axis = (0,1)) != 0)[0]
             self.thresholdedData.update({scan: h[...,here2]})
         else: 
-            h = np.copy(self.reducedData, order = "C")
+            h = np.copy(self.rawData, order = "C")
             here = abs(h) > np.nanmax(abs(h))*threshValue
             h[~here] = 0 
             here2 = np.where(np.sum(np.angle(h), axis = (0,1)) != 0)[0]

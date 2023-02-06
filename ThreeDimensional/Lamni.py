@@ -161,7 +161,7 @@ class Lamni():
             
         
         
-    def generateMagneticArray(self, b, thresh, arraySize, sampleArea = 20000, outline = False, t=None): 
+    def generateMagneticArray(self, b, thresh, arraySize, sampleArea = 20000, outline = True, t=None): 
         """Processed both the mag and charge by cropping to Params['box'] 
         and Thresholding to Params['thresh']"""
         if t == None: 
@@ -183,6 +183,8 @@ class Lamni():
              int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = c[b[2]:b[3], b[0]:b[1], :]
         mag = np.sqrt(mNew[0]**2 + mNew[1]**2 + mNew[2]**2)
         
+        # version from pre-Jan 23
+        # overestimates the sample at the edges
         if outline == True: 
             outline = np.zeros_like(mag)
             mm = mag > 0
@@ -193,7 +195,11 @@ class Lamni():
                     print(i, np.sum(temp))
                     temp = binary_fill_holes(binary_dilation(temp))
                 outline[...,i] = temp
-                
+        
+        # Version from Feb 23
+        # More accurate estimate of the actual sample
+        #if outline == True: 
+        #    outline = mag > 0.01*np.amax(mag)
         else: 
             outline = 0
         
@@ -312,6 +318,7 @@ class Lamni():
             mx = self.magProcessed['{}'.format(t)][0]
             my = self.magProcessed['{}'.format(t)][1]
             mz = self.magProcessed['{}'.format(t)][2]
+            AF = self.magMasks['{}'.format(t)] == 0
             filtered = 0
             try: 
                 getattr(self, 'filtered')
@@ -326,6 +333,7 @@ class Lamni():
             mx = self.magProcessed[0]
             my = self.magProcessed[1]
             mz = self.magProcessed[2]
+            AF = self.magMasks == 0
             filtered = 0
             try: 
                 getattr(self, 'filtered')
@@ -356,6 +364,7 @@ class Lamni():
         mag = np.sqrt(mx**2 + my**2 + mz**2)
         mesh.cell_arrays["mag"] = mag.flatten(order="F")
         mesh.cell_arrays["mag_vector"] = np.array([mx.flatten(order="F"), my.flatten(order="F"), mz.flatten(order="F")]).T
+        mesh.cell_arrays['AF'] = AF.flatten(order = "F")
         
         if filtered != 0: 
             mesh.cell_arrays["filteredMx"] = mxFiltered.flatten(order="F")
@@ -558,7 +567,7 @@ class Lamni():
             self.direction = {'bins': bins[1:], 
                               'counts': hist}
             
-    def plotVectorField(self, field, box = None,  inplaneSkip = 0, outofplaneSkip = 0):
+    def plotVectorField(self, field, box = None,  inplaneSkip = 0, outofplaneSkip = 0, saveName = None):
         import pyvista as pv
         if box == None:
             f = getattr(self, field)
@@ -586,14 +595,14 @@ class Lamni():
                                      replace=False)
 
         mesh['vectors'][rand_ints] = 0
-        mesh['scalars'] = mesh['vectors'][:, 2]
+        mesh['scalars'] = -np.arctan2(mesh['vectors'][:, 0], mesh['vectors'][:,1])
 
 
         mesh['vectors'][rand_ints] = np.array([0, 0, 0])
         arrows = mesh.glyph(factor=2, geom=pv.Arrow())
         pv.set_plot_theme("document")
         p = pv.Plotter()
-        p.add_mesh(arrows, scalars='mz', lighting=False, cmap='twilight_shifted', clim = [-1, 1])
+        p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted', clim = [-np.pi, np.pi])
         #p.show_grid()
         #p.add_bounding_box()
 
@@ -601,6 +610,10 @@ class Lamni():
                   (0, 0, 0),
                   (0, 0, -90)]
         p.show(cpos=y_down)
+        
+        if saveName != None: 
+            mesh.save('{}.vtk'.format(saveName))
+        
         
     def plotScalarField(self, field):
         import pyvista as pv
@@ -650,9 +663,485 @@ class Lamni():
             ax[1].imshow(getattr(self, secondWindowAttribute)[box[2]:box[3], 
                                                               box[0]:box[1], 
                                                               sliceNo],cmap = cmap)
-                    
-                
-                
-                
             
+    def countDistribution(self, t = None): 
+        if t == None: 
+            test = self.magProcessed/np.sqrt(np.sum(self.magProcessed**2, axis = 0))
+            unique, counts = np.unique(np.argmax(test, axis = 0), return_counts=True)
+            self.distribution = {'directions': unique, 
+                                 'counts': counts}
+        else: 
+            test = self.magProcessed[t]/np.sqrt(np.sum(self.magProcessed[t]**2, axis = 0))
+            unique, counts = np.unique(np.argmax(test, axis = 0), return_counts=True)
+            self.distribution.update({t: {'directions': unique, 
+                                 'counts': counts}})
+            
+    def domainSizeAnalysis(self, thresh): 
+        from skimage import measure
+        """
+        split FM into different angles and analyze as a whole and as as a function of thickness
+        do the same with AFinto 
+        
+        """
+        angles = np.arctan2(self.magProcessed[1], -self.magProcessed[0])
+        """
+        Quadrant 1 np.pi/2 to np.pi
+        
+        """
+        m1 = angles > np.pi/2
+        m2 = angles < np.pi 
+        
+        mask1 = m1*m2
+        
+        labels = measure.label(mask1)
+        
+        props = measure.regionprops(measure.label(mask1))
+        l = {'{}'.format(x): measure.regionprops(measure.label(mask1[...,x])) for x in range(mask1.shape[2])}
+        
+        """Clean the data"""
+        vol = []
+        for p in props: 
+            if p['area'] > thresh: 
+                vol.append(p)
+        """thickness"""
+        n = {}
+        for k in list(l.keys()): 
+            new = []
+            for p in l[k]: 
+               if p['area'] > thresh: 
+                   new.append(p)
+            n.update({k: new})
+        domains = {'quad1': {'volume': vol, 
+                             'thickness': n}}
+        
+        """
+        Quadrant 2 0 to np.pi/2
+        
+        """
+        m1 = angles > 0
+        m2 = angles < np.pi/2 
+        
+        mask2 = m1*m2
+        
+        labels = measure.label(mask2)
+        
+        props = measure.regionprops(measure.label(mask2))
+        l = {'{}'.format(x): measure.regionprops(measure.label(mask2[...,x])) for x in range(mask2.shape[2])}
+        
+        """Clean the data"""
+        vol = []
+        for p in props: 
+            if p['area'] > thresh: 
+                vol.append(p)
+        """thickness"""
+        n = {}
+        for k in list(l.keys()): 
+            new = []
+            for p in l[k]: 
+               if p['area'] > thresh: 
+                   new.append(p)
+            n.update({k: new})
+        domains.update({'quad2': {'volume': vol, 
+                             'thickness': n}})
+        
+        """
+        Quadrant 3 -np.pi/2 to 0
+        
+        """
+        m1 = angles > -np.pi/2
+        m2 = angles < 0 
+        
+        mask3 = m1*m2
+        
+        labels = measure.label(mask3)
+        
+        props = measure.regionprops(measure.label(mask3))
+        l = {'{}'.format(x): measure.regionprops(measure.label(mask3[...,x])) for x in range(mask3.shape[2])}
+        
+        """Clean the data"""
+        vol = []
+        for p in props: 
+            if p['area'] > thresh: 
+                vol.append(p)
+        """thickness"""
+        n = {}
+        for k in list(l.keys()): 
+            new = []
+            for p in l[k]: 
+               if p['area'] > thresh: 
+                   new.append(p)
+            n.update({k: new})
+        domains.update({'quad3': {'volume': vol, 
+                             'thickness': n}})
+        
+        """
+        Quadrant 4 -np.pi to np.pi/2
+        
+        """
+        m1 = angles > -np.pi
+        m2 = angles < -np.pi/2 
+        
+        mask4 = m1*m2
+        
+        labels = measure.label(mask4)
+        
+        props = measure.regionprops(measure.label(mask4))
+        l = {'{}'.format(x): measure.regionprops(measure.label(mask4[...,x])) for x in range(mask4.shape[2])}
+        
+        """Clean the data"""
+        vol = []
+        for p in props: 
+            if p['area'] > thresh: 
+                vol.append(p)
+        """thickness"""
+        n = {}
+        for k in list(l.keys()): 
+            new = []
+            for p in l[k]: 
+               if p['area'] > thresh: 
+                   new.append(p)
+            n.update({k: new})
+        domains.update({'quad4': {'volume': vol, 
+                             'thickness': n}})
+        
+        """AF"""
+    
+        
+        mask5 = self.magMasks == 0
+        
+        labels = measure.label(mask5)
+        
+        props = measure.regionprops(measure.label(mask5))
+        l = {'{}'.format(x): measure.regionprops(measure.label(mask5[...,x])) for x in range(mask5.shape[2])}
+        
+        """Clean the data"""
+        vol = []
+        for p in props: 
+            if p['area'] > thresh: 
+                vol.append(p)
+        """thickness"""
+        n = {}
+        for k in list(l.keys()): 
+            new = []
+            for p in l[k]: 
+               if p['area'] > thresh: 
+                   new.append(p)
+            n.update({k: new})
+        domains.update({'quad5': {'volume': vol, 
+                             'thickness': n}})
+        
+        self.quadMasks = {'1': mask1, 
+                          '2': mask2, 
+                          '3': mask3, 
+                          '4': mask4, 
+                          '5': mask5}
+        self.domains = domains
+    
+    def plotDomainInfo(self, prop, vol = None, quad = None): 
+        if vol == None: 
+            n = {}
+            nav = {}
+            for q in list(self.domains.keys()):
+                info = {}
+                av_info = []
+                for t in list(self.domains[q]['thickness'].keys()): 
+                    t_info = []
+                    for p in self.domains[q]['thickness'][t]: 
+                        t_info.append(p[prop])
+                    info.update({t: t_info})
+                    av_info.append(np.mean(t_info))
+                n.update({q: info})
+                nav.update({q: av_info})
+                
+        else: 
+            n = {}
+            nav = {}
+            for q in list(self.domains.keys()):
+                info = {}
+                t_info = []
+                for p in self.domains[q]['volume']: 
+                    t_info.append(p[prop])
+                n.update({q: t_info})
+                nav.update({q: np.mean(t_info)})
+                
+    def domainAnalysis2(self,thresh = 10, t = None): 
+        import porespy as ps
+        import pandas as pd
+        from skimage.measure import label, regionprops, regionprops_table
+        labels =['label', 'volume', 'bbox_volume',
+         'sphericity','surface_area', 'convex_volume',
+         'area','area_bbox', 'area_convex', 'equivalent_diameter_area',
+         'euler_number', 'extent', 'feret_diameter_max',
+         'area_filled', 'axis_major_length', 'axis_minor_length',
+         'solidity', 'temp']
+        if t == None: 
+            """Volume"""
+            im = label(self.magMasks)#)[25:175, 40:160, :])
+            regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
+                                             'area', 
+                                             'bbox', 
+                                             'image_filled')))
+            cleaned = regions[regions['area'] > thresh]
+
+            cleaned['top'] =  cleaned['bbox-2'] == 0
+            cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
+            fm = cleaned
+            
+            im = label(1 - self.magMasks)#[25:175, 40:160, :])
+            regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
+                                             'area', 
+                                             'bbox', 
+                                             'image_filled')))
+            cleaned = regions[regions['area'] > thresh]
+
+            cleaned['top'] =  cleaned['bbox-2'] == 0
+            cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
+            af = cleaned
+            
+            self.domains2 = {'fm': fm, 
+                             'af': af}
+            
+            """layer by layer"""
+            for i in range(self.magMasks.shape[-1]): 
+                from skimage.measure import label, regionprops_table
+                """FM"""
+                print('Hard coded at the moment to remove influence of the suprious sample edges')
+                image = self.magMasks[...,i]#[25:175,40:160,i]
+                label_img = label(image)
+                regions = pd.DataFrame(regionprops_table(label_img, properties = ('centroid',
+                                                 'orientation',
+                                                 'axis_major_length',
+                                                 'axis_minor_length', 
+                                                 'area', 
+                                                 'bbox', 
+                                                 'image_filled')))
+                regions = regions[regions['area'] > thresh]
+                regions['domainIdentifier'] = np.arange(len(regions))
+                regions['slice'] = i*(145/self.magMasks.shape[-1])
+                regions['temp'] = self.t
+                if i == 0: 
+                    fm_individual = regions
+                else: 
+                    fm_individual = fm_individual.append(regions, ignore_index = True)
+                
+                """AF"""
+                image = 1-self.magMasks[...,i]#[25:175,40:160,i]
+                label_img = label(image)
+                regions = pd.DataFrame(regionprops_table(label_img, properties = ('centroid',
+                                                 'orientation',
+                                                 'axis_major_length',
+                                                 'axis_minor_length', 
+                                                 'area', 
+                                                 'bbox', 
+                                                 'image_filled')))
+                regions = regions[regions['area'] > thresh]
+                regions['domainIdentifier'] = np.arange(len(regions))
+                regions['slice'] = i*(145/self.magMasks.shape[-1])
+                regions['temp'] = self.t
+                if i == 0: 
+                    af_individual = regions
+                else: 
+                    af_individual = af_individual.append(regions, ignore_index = True)
+                
+            self.domains2individual = {'fm' : fm_individual, 
+                                       'af' : af_individual}
+        else: 
+            im = label(self.magMasks[t])#[25:175, 40:160, :])
+            regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
+                                             'area', 
+                                             'bbox', 
+                                             'image_filled')))
+            cleaned = regions[regions['area'] > thresh]
+
+            cleaned['top'] =  cleaned['bbox-2'] == 0
+            cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
+            cleaned['temp'] = t
+            fm = cleaned
+                
+      
+            im = label(1 - self.magMasks[t])#[25:175, 40:160, :])
+            regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
+                                             'area', 
+                                             'bbox', 
+                                             'image_filled')))
+            cleaned = regions[regions['area'] > thresh]
+
+            cleaned['top'] =  cleaned['bbox-2'] == 0
+            cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
+            cleaned['temp'] = t
+            af = cleaned
+           
+            
+            self.domains2.update({t: {'fm': fm, 
+                             'af': af}})
+            
+            
+            """layer by layer"""
+            for i in range(self.magMasks[t].shape[-1]): 
+                from skimage.measure import label, regionprops_table
+                """FM"""
+                image = self.magMasks[t][...,i]#[25:175,40:160,i]
+                label_img = label(image)
+                regions = pd.DataFrame(regionprops_table(label_img, properties = ('centroid',
+                                                 'orientation',
+                                                 'axis_major_length',
+                                                 'axis_minor_length', 
+                                                 'area', 
+                                                 'bbox', 
+                                                 'image_filled')))
+                regions = regions[regions['area'] > thresh]
+                regions['domainIdentifier'] = np.arange(len(regions))
+                regions['slice'] = i*(145/self.magMasks[t].shape[-1])
+                regions['temp'] = t
+                
+                if i == 0: 
+                    fm_individual = regions
+                else: 
+                    fm_individual = fm_individual.append(regions, ignore_index = True)
+                
+                """AF"""
+                image = 1-self.magMasks[t][...,i]#[25:175,40:160,i]
+                label_img = label(image)
+                regions = pd.DataFrame(regionprops_table(label_img, properties = ('centroid',
+                                                 'orientation',
+                                                 'axis_major_length',
+                                                 'axis_minor_length', 
+                                                 'area', 
+                                                 'bbox', 
+                                                 'image_filled')))
+                regions = regions[regions['area'] > thresh]
+                regions['domainIdentifier'] = np.arange(len(regions))
+                regions['slice'] = i*(145/self.magMasks[t].shape[-1])
+                regions['temp'] = t
+                if i == 0: 
+                    af_individual = regions
+                else: 
+                    af_individual = af_individual.append(regions, ignore_index = True)
+                
+            self.domains2individual.update({t: {'fm' : fm_individual, 
+                                       'af' : af_individual}})
+            
+    def calcDistributions(self, t = None):
+        if t == None: 
+            fm = np.zeros(shape = self.magMasks.shape[-1])
+            af = np.zeros(shape = self.magMasks.shape[-1])
+            fmerr = np.zeros(shape = self.magMasks.shape[-1])
+            aferr = np.zeros(shape = self.magMasks.shape[-1])
+            for i in range(self.magMasks.shape[-1]): 
+                fm[i] = np.sum(self.magMasks[...,i] == 1)/np.sum(self.magMasks[...,i]>-1)
+                fmerr[i] = np.sum(self.magMasks[...,i] == 1)/np.sum(self.magMasks[...,i]>-1)*np.sqrt((1/np.sum(self.magMasks[...,i] == 1)) + (1/np.sum(self.magMasks[...,i]>0)))
+                af[i] = (np.sum(self.magMasks[...,i] == 0)/np.sum(self.magMasks[...,i]>-1))
+                aferr[i] = (np.sum(self.magMasks[...,i] == 0)/np.sum(self.magMasks[...,i]>-1)*np.sqrt((1/np.sum(self.magMasks[...,i] == 1)) + (1/np.sum(self.magMasks[...,i]>0))))
+            self.distributions = {'fm': [np.array(fm), np.array(fmerr)],
+                                     'af': [np.array(af), np.array(aferr)]}
+            print('Distribution calculated succesfully.')
+        else: 
+            fm = np.zeros(shape = self.magMasks[t].shape[-1])
+            af = np.zeros(shape = self.magMasks[t].shape[-1])
+            fmerr = np.zeros(shape = self.magMasks[t].shape[-1])
+            aferr = np.zeros(shape = self.magMasks[t].shape[-1])
+            for i in range(self.magMasks[t].shape[-1]): 
+                fm[i] = np.sum(self.magMasks[t][...,i] == 1)/np.sum(self.magMasks[t][...,i]>-1)
+                fmerr[i] = np.sum(self.magMasks[t][...,i] == 1)/np.sum(self.magMasks[t][...,i]>-1)*np.sqrt((1/np.sum(self.magMasks[t][...,i] == 1)) + (1/np.sum(self.magMasks[t][...,i]>0)))
+                af[i] = (np.sum(self.magMasks[t][...,i] == 0)/np.sum(self.magMasks[t][...,i]>-1))
+                aferr[i] = (np.sum(self.magMasks[t][...,i] == 0)/np.sum(self.magMasks[t][...,i]>-1)*np.sqrt((1/np.sum(self.magMasks[t][...,i] == 1)) + (1/np.sum(self.magMasks[t][...,i]>0))))
+            self.distributions.update({t: {'fm': [np.array(fm), np.array(fmerr)],
+                                     'af': [np.array(af), np.array(aferr)]}})
+            print(f'Distribution calculated succesfully for {t} K')
+    def calcAsymmetries(self, t = None): 
+        if t == None: 
+            a = {}
+            for key in list(self.distributions.keys()):
+                array = np.array(self.distributions[key][0])
+                err = np.array(self.distributions[key][1])
+                data = (array-array[::-1])/np.amax(abs(array))
+                etemp = np.sqrt(err**2 + err[::-1]**2)
+                efin = data*np.sqrt((etemp/data)**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+                a.update({key: [array, efin]})
+                self.asym = a
+                
+        else: 
+            a = {}
+            for key in list(self.distributions[t].keys()):
+                array = np.array(self.distributions[t][key][0])
+                err = np.array(self.distributions[t][key][1])
+                data = (array-array[::-1])/np.amax(abs(array))
+                etemp = np.sqrt(err**2 + err[::-1]**2)
+                efin = data*np.sqrt((etemp/data)**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+                a.update({key: [array, efin]})
+                self.asym.update({t: a})
+    
+    def saveAsym(self, savePath, fileName = None, key = 'fm', t = None):
+        if t == None: 
+            if fileName == None: 
+                print('Default filename format selected')
+                d = dateToSave()
+                fileName = f'{d}_Asym_{self.t}.txt'
+            array = np.array(self.distributions[key][0])
+            err = np.array(self.distributions[key][1])
+            data = np.zeros(shape = (array.shape[0],3))
+            data[:,0] = (array-array[::-1])/np.amax(abs(array))
+            etemp = np.sqrt(err**2 + err[::-1]**2)
+            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+            data[:,2] =  np.arange(len(array))/len(array)
+            current = os.getcwd()
+            os.chdir(savePath)
+            np.savetxt(f'{fileName}.txt', data)
+            
+        else:
+            if t == None: 
+                if fileName == None: 
+                    print('Default filename format selected')
+                    d = dateToSave()
+                    fileName = f'{d}_Asym_{t}.txt'
+            array = np.array(self.distributions[t][key][0])
+            err = np.array(self.distributions[t][key][1])
+            data = np.zeros(shape = (array.shape[0],3))
+            data[:,0] = (array-array[::-1])/np.amax(abs(array))
+            etemp = np.sqrt(err**2 + err[::-1]**2)
+            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+            data[:,2] =  np.arange(len(array))/len(array)
+            current = os.getcwd()
+            os.chdir(savePath)
+            np.savetxt(f'{fileName}.txt', data)
+            os.chdir(current)
+        
+    def saveDistribution(self, savePath, fileName = None, key = 'fm', t = None):
+        if t == None: 
+            if fileName == None: 
+                print('Default filename format selected')
+                d = dateToSave()
+                fileName = f'{d}_Dist_{self.t}_{key}.txt'
+            array = np.array(self.distributions[key][0])
+            err = np.array(self.distributions[key][1])
+            data = np.zeros(shape = (array.shape[0],3))
+            data[:,0] = (array)/np.amax(abs(array))
+            etemp = np.sqrt(err**2 + err[::-1]**2)
+            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+            data[:,2] =  np.arange(len(array))/len(array)
+            current = os.getcwd()
+            os.chdir(savePath)
+            np.savetxt(f'{fileName}.txt', data)
+            
+        else:
+            if t == None: 
+                if fileName == None: 
+                    print('Default filename format selected')
+                    d = dateToSave()
+                    fileName = f'{d}_Dist_{t}_{key}.txt'
+            array = np.array(self.distributions[t][key][0])
+            err = np.array(self.distributions[t][key][1])
+            data = np.zeros(shape = (array.shape[0],3))
+            data[:,0] = (array)/np.amax(abs(array))
+            etemp = np.sqrt(err**2 + err[::-1]**2)
+            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
+            data[:,2] =  np.arange(len(array))/len(array)
+            current = os.getcwd()
+            os.chdir(savePath)
+            np.savetxt(f'{fileName}.txt', data)
+            os.chdir(current)
+    
+            
+            
+    
                         

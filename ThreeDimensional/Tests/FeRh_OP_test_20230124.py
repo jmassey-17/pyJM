@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue Jan 24 13:34:04 2023
+
+@author: massey_j
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Aug 26 15:39:00 2022
 
 @author: massey_j
@@ -22,32 +29,32 @@ homedir = r'C:\Data\FeRh\Reconstructions_All_20220425\wxmcd'
 paramDict = {'300': {'H or C': 'C', 
                       'Rot': -20, 
                       'Box': [75, 215, 40, 215], 
-                      'thresh': 0.3, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 0},
               '310': {'H or C': 'H', 
                       'Rot': 20, 
                       'Box': [75, 230, 25, 210], 
-                      'thresh': 0.3, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 4},
               '330': {'H or C': 'C', 
                       'Rot': -20, 
                       'Box': [70, 215, 45, 215], 
-                      'thresh': 0.1, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 0},
               '335': {'H or C': 'H', 
                       'Rot': 20, 
                       'Box': [60, 220, 35, 210], 
-                      'thresh': 0.2, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 5},
               '375': {'H or C': 'H', 
                       'Rot': 23, 
                       'Box': [65, 220, 40, 220], 
-                      'thresh': 0.1, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 5},
               '440': {'H or C': 'C', 
                       'Rot': -28, 
                       'Box': [90, 235, 50, 230], 
-                      'thresh': 0.03, 
+                      'thresh': 0.0001, 
                       'thetaoffset': 24},
               }     
 
@@ -66,13 +73,14 @@ files = [file for file in files if len(file) < 7]
 #     rec.magProcessed[0] = -rec.magProcessed[0]
 #     rec.magProcessed[1]= -rec.magProcessed[1]
 
-#recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
+# #recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
 recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
 # # recs.countDistribution()
 recs.domainAnalysis2(thresh = 1)
 recs.generateHeatCoolDataframe('finalIndividualFM', [310,335,375])
 recs.generateFinalDataframe(['finalFM', 'finalAF'])
 recs.generateProbability('fm_heat', ['top', 'bottom', 'both', 'either', 'neither'])
+# test = np.zeros_like(rec.magMasks)
 # test[rec.magMasks == 1] = 1
 # test[rec.magMasks == 0] = -1
 
@@ -103,10 +111,3 @@ recs.generateProbability('fm_heat', ['top', 'bottom', 'both', 'either', 'neither
 #           (0, 0, -90)]
 # p.show(cpos=y_down)
 # mesh.save('{}.vtk'.format('AF_test'))
-
-#recs = LamniOutput.LamniOutput(homedir, paramDict = paramDict)
-# # recs.countDistribution()
-# recs.domainAnalysis2(thresh = 1)
-# recs.generateHeatCoolDataframe('finalIndividualFM', [310,335,375])
-# recs.generateFinalDataframe(['finalFM', 'finalAF'])
-# recs.generateProbability('fm_heat', ['top', 'bottom', 'both', 'either', 'neither'])

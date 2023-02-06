@@ -105,6 +105,7 @@ class LamniOutput(LamniMulti):
             j = 0
             for angle in angles2show: 
                 here = np.where(temp == angle)[0] + self.Params[h]['thetaoffset'] 
+                print(h, here, temp[here])
                 if here >= xmcd.shape[2]: 
                     here = here-xmcd.shape[2]
                 bar = ax[i, j].imshow(xmcd[...,here],  cmap = cmap, vmin = vmin, vmax = vmax)
@@ -372,6 +373,37 @@ class LamniOutput(LamniMulti):
 
         cb.outline.set_visible(False)                                 
         display_axes.set_axis_off()
+        plt.tight_layout()
+        if saveName != None:
+            here = os.getcwd()
+            os.chdir(savePath)
+            fig.savefig('{}.svg'.format(saveName), dpi=1200)
+            os.chdir(here)
+            
+    def OutOfPlanePlot(self, direction, sliceNo, cmap = 'twilight_shifted',saveName = None, savePath = None): 
+        import matplotlib.pyplot as plt
+        import matplotlib as mpl
+        from matplotlib import cm
+        
+        """Component = -1 gives the masks"""
+        fig, ax = plt.subplots(2,3, figsize = (12,6), sharex = 'all')
+        i = 0
+        for h in self.heatScans: 
+            arr = self.magProcessed[h]/np.sqrt(np.sum(self.magProcessed[h]**2, axis = 0))
+            ax[0,i].imshow(arr[2,...,sliceNo], cmap = cmap, vmin = -1, vmax = 1)
+            ax[0,i].set_xticks([])
+            ax[0,i].set_yticks([])
+            i += 1
+        j = 0
+        for h in self.coolScans:
+            arr = self.magProcessed[h]/np.sqrt(np.sum(self.magProcessed[h]**2, axis = 0))
+            bar = ax[1,j].imshow(arr[2,...,sliceNo], cmap = cmap, vmin = -1, vmax = 1)
+            ax[1,j].set_xticks([])
+            ax[1,j].set_yticks([])
+            j += 1
+        fig.subplots_adjust(right=1)
+        cbar_ax = fig.add_axes([0.95, 0.15, 0.05, 0.7])
+        fig.colorbar(bar, cax=cbar_ax)
         plt.tight_layout()
         if saveName != None:
             here = os.getcwd()
