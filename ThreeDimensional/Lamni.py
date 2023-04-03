@@ -458,7 +458,7 @@ class Lamni():
         
             
     
-    def QuiverPlotSingle(self, direction, sliceNo, xinterval, yinterval, scale2 = 0.0001, pos = [2, 1, 0.5, 0.5], saveName = None, savePath = None): 
+    def QuiverPlotSingle(self, attribute, direction, sliceNo, xinterval, yinterval, scale2 = 0.0001, pos = [2, 1, 0.5, 0.5], saveName = None, savePath = None): 
         import matplotlib.pyplot as plt
         import matplotlib as mpl
         from matplotlib import cm
@@ -473,7 +473,7 @@ class Lamni():
             comps = {}
             c = (2,0)
             for i in c: 
-                comps.update({'{}'.format(i): np.swapaxes(self.magProcessed[i, sliceNo], 0,1)})
+                comps.update({'{}'.format(i): np.swapaxes(getattr(self, attribute)[i, sliceNo], 0,1)})
                 shape.append(comps['{}'.format(c[0])].shape)
             shape = np.array(shape)
 
@@ -485,7 +485,7 @@ class Lamni():
             comps = {}
             c = (2,0)
             for i in c: 
-                comps.update({'{}'.format(i): np.swapaxes(self.magProcessed[i,:,  sliceNo, :], 0,1)})
+                comps.update({'{}'.format(i): np.swapaxes(getattr(self, attribute)[i,:,  sliceNo, :], 0,1)})
                 shape.append(comps['{}'.format(c[0])].shape)
             shape = np.array(shape)
             
@@ -497,7 +497,7 @@ class Lamni():
             comps = {}
             c = (0,1)
             for i in c: 
-                    comps.update({'{}'.format(i): self.magProcessed[i, ..., sliceNo]})
+                    comps.update({'{}'.format(i): getattr(self, attribute)[i, ..., sliceNo]})
             shape.append(1)
             shape = np.array(shape)
             scale = shape
@@ -643,11 +643,13 @@ class Lamni():
                   (0, 0, -90)]
         p.show(cpos=y_down)
         
-    def plotCropQuiver(self, sliceNo, box, interval, secondWindowAttribute = 'vorticity', secondWindowComponent = 2, ):
+    def plotCropQuiver(self, attribute, sliceNo, box, interval, secondWindowAttribute = 'vorticity', secondWindowComponent = 2, ):
         cmap = 'twilight_shifted'
         fig, ax = plt.subplots(1, 2,figsize = (12,6), sharex = 'all')
-        mx = self.magProcessed[0, box[2]:box[3], box[0]:box[1], sliceNo]
-        my = self.magProcessed[1, box[2]:box[3], box[0]:box[1], sliceNo]
+        if getattr(self, attribute).ndims != 4:
+            raise ValueError("Array of selected attribute must be 4-dimensional")
+        mx = getattr(self, attribute)[0, box[2]:box[3], box[0]:box[1], sliceNo]
+        my = getattr(self, attribute)[1, box[2]:box[3], box[0]:box[1], sliceNo]
         x,y = np.meshgrid(np.arange(mx.shape[1]),
                           np.arange(mx.shape[0]))
         c = np.arctan2(my,mx)

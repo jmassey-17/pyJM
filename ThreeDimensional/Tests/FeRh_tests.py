@@ -72,41 +72,8 @@ recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
 recs.domainAnalysis2(thresh = 1)
 recs.generateHeatCoolDataframe('finalIndividualFM', [310,335,375])
 recs.generateFinalDataframe(['finalFM', 'finalAF'])
-recs.generateProbability('fm_heat', ['top', 'bottom', 'both', 'either', 'neither'])
-# test[rec.magMasks == 1] = 1
-# test[rec.magMasks == 0] = -1
+recs.generateProbability('af_cool', ['top', 'bottom', 'both', 'either', 'neither'])
 
-# import pyvista as pv
-# scalar_field = test
-# nx, ny, nz = scalar_field.shape
-# size = scalar_field[0].size
+fm_heat = recs.finals['fm_heat']
+af_cool = recs.finals['af_cool']
 
-# origin = (-(nx - 1) * 1 / 2, -(ny - 1) * 1 / 2, -(nz - 1) * 1 / 2)
-# mesh = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
-
-# mesh['scalars'] = scalar_field.flatten(order = "F")
-
-
-# # # remove some values for clarity
-# num_arrows = mesh['scalars'].shape[0]
-# rand_ints = np.random.choice(num_arrows - 1, size=int(num_arrows - 2*num_arrows / np.log(num_arrows + 1)),
-#                              replace=False)
-
-# pv.set_plot_theme("document")
-# p = pv.Plotter()
-# p.add_mesh(mesh, scalars=mesh['scalars'], opacity = 0.5, lighting=False, cmap='twilight_shifted')
-# p.show_grid()
-# p.add_bounding_box()
-
-# y_down = [(0, 80, 0),
-#           (0, 0, 0),
-#           (0, 0, -90)]
-# p.show(cpos=y_down)
-# mesh.save('{}.vtk'.format('AF_test'))
-
-#recs = LamniOutput.LamniOutput(homedir, paramDict = paramDict)
-# # recs.countDistribution()
-# recs.domainAnalysis2(thresh = 1)
-# recs.generateHeatCoolDataframe('finalIndividualFM', [310,335,375])
-# recs.generateFinalDataframe(['finalFM', 'finalAF'])
-# recs.generateProbability('fm_heat', ['top', 'bottom', 'both', 'either', 'neither'])
