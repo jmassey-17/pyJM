@@ -188,7 +188,6 @@ class Lamni():
         if outline == True: 
             outline = np.zeros_like(mag)
             mm = mag > 0
-            print("Checking structure")
             for i in range(mag.shape[2]): 
                 temp = binary_fill_holes(feature.canny(mm[...,i], 10))
                 while np.sum(temp) < sampleArea: #20000 FeRh
@@ -567,12 +566,19 @@ class Lamni():
             self.direction = {'bins': bins[1:], 
                               'counts': hist}
             
-    def plotVectorField(self, field, box = None,  inplaneSkip = 0, outofplaneSkip = 0, saveName = None):
+    def plotVectorField(self, field, t = None, box = None,  inplaneSkip = 0, outofplaneSkip = 0, saveName = None):
         import pyvista as pv
-        if box == None:
-            f = getattr(self, field)
-        else: 
-            f = getattr(self, field)[:, box[2]:box[3], box[0]:box[1], :]
+        if t == None: 
+            if box == None:
+                f = getattr(self, field)
+            else: 
+                f = getattr(self, field)[:, box[2]:box[3], box[0]:box[1], :]
+        else:  
+            if box == None:
+                f = getattr(self, field)[t]
+            else: 
+                f = getattr(self, field)[t][:, box[2]:box[3], box[0]:box[1], :]
+                
         
         vector_field = f/np.sqrt(np.sum(f**2, axis = 0))
         if inplaneSkip != 0: 
@@ -602,7 +608,7 @@ class Lamni():
         arrows = mesh.glyph(factor=2, geom=pv.Arrow())
         pv.set_plot_theme("document")
         p = pv.Plotter()
-        p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted', clim = [-np.pi, np.pi])
+        p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted', clim = [-np.pi, np.pi], show_scalar_bar=False)
         #p.show_grid()
         #p.add_bounding_box()
 
@@ -876,6 +882,27 @@ class Lamni():
          'euler_number', 'extent', 'feret_diameter_max',
          'area_filled', 'axis_major_length', 'axis_minor_length',
          'solidity', 'temp']
+        
+        def coordComparison(array, i,j,k, coords): 
+            shape = array.shape
+            result = []
+            for c in coords:
+                try:
+                    result.append(array[i,j,k] == array[i+c[0],j+c[1],k+c[2]])
+                except: 
+                    result.append(False) 
+            return np.sum(result)         
+
+        def surfaceAreaFinder(im, row, coords):
+            here = np.zeros(shape = im.shape)
+            for c in row['coords']: 
+                here[c[0], c[1], c[2]] = 1
+            mask = [coordComparison(here, c[0],c[1],c[2], coords) for c in row['coords']]
+            result = np.zeros_like(here)
+            for i, c in enumerate(row['coords']): 
+                result[c[0], c[1], c[2]] = mask[i]
+            return result
+        
         if t == None: 
             """Volume"""
             im = label(self.magMasks)#)[25:175, 40:160, :])
@@ -948,13 +975,18 @@ class Lamni():
             self.domains2individual = {'fm' : fm_individual, 
                                        'af' : af_individual}
         else: 
+            coords = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,-1], [0,0,1]]
             im = label(self.magMasks[t])#[25:175, 40:160, :])
+            image2 = self.magMasks[t]
             regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
                                              'area', 
                                              'bbox', 
+                                             'coords',
                                              'image_filled')))
             cleaned = regions[regions['area'] > thresh]
-
+            cleaned = cleaned[cleaned['area'] != np.sum(image2 == -1)]
+            cleaned['surface'] = cleaned.apply(lambda row: surfaceAreaFinder(image2, row, coords), axis = 1)
+            cleaned['surface_area'] = cleaned.apply(lambda row: np.sum(row['surface']), axis = 1)
             cleaned['top'] =  cleaned['bbox-2'] == 0
             cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
             cleaned['temp'] = t
@@ -962,12 +994,16 @@ class Lamni():
                 
       
             im = label(1 - self.magMasks[t])#[25:175, 40:160, :])
+            image2 = 1 - self.magMasks[t]
             regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
                                              'area', 
-                                             'bbox', 
+                                             'bbox',
+                                             'coords',
                                              'image_filled')))
             cleaned = regions[regions['area'] > thresh]
-
+            cleaned = cleaned[cleaned['area'] != np.sum(image2 == -1)]
+            cleaned['surface'] = cleaned.apply(lambda row: surfaceAreaFinder(image2, row, coords), axis = 1)
+            cleaned['surface_area'] = cleaned.apply(lambda row: np.sum(row['surface']), axis = 1)
             cleaned['top'] =  cleaned['bbox-2'] == 0
             cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
             cleaned['temp'] = t

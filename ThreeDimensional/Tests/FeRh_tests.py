@@ -77,3 +77,4 @@ recs.generateProbability('af_cool', ['top', 'bottom', 'both', 'either', 'neither
 fm_heat = recs.finals['fm_heat']
 af_cool = recs.finals['af_cool']
 
+recs.calcDistributions()

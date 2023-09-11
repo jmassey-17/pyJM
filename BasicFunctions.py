@@ -3,42 +3,37 @@ import glob
 import numpy as np
 from PIL import Image
 from scipy.ndimage import center_of_mass
+from time import perf_counter
+
+def timeOperation(func): 
+    def timeit_wrapper(*args, **kwargs):
+        start_time = perf_counter()
+        result = func(*args, **kwargs)
+        total_time = perf_counter()- start_time
+        print(f'Function {func.__name__} took {total_time:.4f} seconds')
+        return result
+    return timeit_wrapper
+
+def ims2Array(homedir, file_dir): 
+    return np.array([np.array(Image.open(os.path.join(homedir,file_dir,file))) for file in sorted(os.listdir(os.path.join(homedir, file_dir))) if file.find('tif') != -1])
+
+def find_all(a_str, sub):
+    start = 0
+    while True:
+        start = a_str.find(sub, start)
+        if start == -1: return
+        yield start
+        start += len(sub) # use start += 1 to find overlapping matches
 
 def dateToSave(time = False): 
+    """Produces string of the time in YYYYMMDD format
+    if time string includes time in HHMM """
+    
     import datetime
-    x = datetime.datetime.now()
-    y = str(x.year)
-    if x.month < 10:
-        m = '0' + str(x.month)
+    if time: 
+        return datetime.datetime.now().strftime('%Y%m%d_%H%M')
     else: 
-        m = str(x.month)
-    if x.day < 10:
-        d = '0' + str(x.day)
-    else: 
-        d = str(x.day)
-    st = y+m+d
-        
-    if time != False: 
-        if x.minute < 10:
-            mi = '0' + str(x.minute)
-        else: 
-            mi = str(x.minute)
-        if x.hour < 10:
-            h = '0' + str(x.hour)
-        else: 
-            h = str(x.hour)
-        st = st+'_'+h+mi
-    return st
-
-def ims2Array(file_dir, ext = 'tif'): 
-    os.chdir(file_dir)
-    files = glob.glob('*.{}'.format(ext))
-    files.sort()
-    test = np.array((Image.open(files[0])))
-    imageArray = np.zeros(shape = (test.shape[0], test.shape[1], len(files)))
-    for i in range(len(files)): 
-        imageArray[:,:,i] = np.array(Image.open(files[i]))
-    return imageArray
+        return datetime.datetime.now().strftime('%Y%m%d')
 
 def reduceArraySize(array, thresh = 0.1, buffer = 5): 
     p = np.where(abs(array) > np.amax(abs(array))*thresh)

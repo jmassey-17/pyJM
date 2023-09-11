@@ -355,9 +355,6 @@ class LamniOutput(LamniMulti):
             ax[1,j].set_aspect(scale[i+j])
             j += 1
         display_axes = fig.add_axes([0.05,0.05,0.05,0.05], projection='polar')
-        #display_axes._direction = 2*np.pi ## This is a nasty hack - using the hidden field to 
-                                      ## multiply the values such that 1 become 2*pi
-                                      ## this field is supposed to take values 1 or -1 only!!
 
         norm = mpl.colors.Normalize(-np.pi, np.pi)
         if direction == 'z':
