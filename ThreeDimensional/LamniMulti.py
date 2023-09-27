@@ -97,7 +97,7 @@ class LamniMulti(Lamni):
         shape = np.zeros(shape = len(list(self.magProcessed.keys())))
         i = 0
         for t in list(self.magProcessed.keys()): 
-            shape[i] = self.magProcessed['{}'.format(t)].shape[-1]
+            shape[i] = self.magProcessed[f'{t}'].shape[-1]
             i += 1
     
         maxPos = np.argmax(shape)
@@ -105,19 +105,23 @@ class LamniMulti(Lamni):
         self.zoomedDict = {}
         self.zoomedMasks = {}
         self.zoomedFinal = {}
+        self.zoomedMag = {}
 
-        standard = self.magProcessed['{}'.format(list(self.magProcessed.keys())[maxPos])]
-        maskStandard = self.magMasks['{}'.format(list(self.magProcessed.keys())[maxPos])]
+        standard = self.magProcessed[f'{list(self.magProcessed.keys())[maxPos]}']
+        maskStandard = self.magMasks[f'{list(self.magProcessed.keys())[maxPos]}']
+        magStandard = self.magDict[f'{list(self.magProcessed.keys())[maxPos]}']
 
         for t in list(self.magProcessed.keys()): 
             if t == list(self.magProcessed.keys())[maxPos]: 
-                self.zoomedDict.update({'{}'.format(t): standard})
-                self.zoomedMasks.update({'{}'.format(t): maskStandard})
+                self.zoomedDict.update({f'{t}': standard})
+                self.zoomedMasks.update({f'{t}': maskStandard})
+                self.zoomedMag.update({f'{t}': magStandard})
             else: 
-                self.zoomedDict.update({'{}'.format(t): zoom2(standard, self.magProcessed['{}'.format(t)])})
-                self.zoomedMasks.update({'{}'.format(t): zoom2(maskStandard, self.magMasks['{}'.format(t)])})
-            new = np.zeros_like(self.zoomedDict['{}'.format(t)])
-            outline = np.where(self.zoomedMasks['{}'.format(t)] < -0.8)
+                self.zoomedDict.update({f'{t}': zoom2(standard, self.magProcessed[f'{t}'])})
+                self.zoomedMasks.update({f'{t}': zoom2(maskStandard, self.magMasks[f'{t}'])})
+                self.zoomedMag.update({f'{t}': zoom2(maskStandard, self.magDict[f'{t}'])})
+            new = np.zeros_like(self.zoomedDict[f'{t}'])
+            outline = np.where(self.zoomedMasks[f'{t}'] < -0.8)
             for i in range(3): 
                 n = self.zoomedDict['{}'.format(t)][i]*(self.zoomedMasks['{}'.format(t)] > 0.8)
                 n[outline] = np.nan
@@ -128,13 +132,13 @@ class LamniMulti(Lamni):
         """Calculates volume from the magnetic/charge ratio"""
         self.volume = {}
         for t in list(self.magProcessed.keys()): 
-            super().volumeCalc(t)
+            super().volumeCalc(t = t)
             
     def calculateCurl(self): 
         """Calculates mathematical curl"""
         self.curl = {}
         for t in list(self.magProcessed.keys()): 
-            super().calcCurl(t)
+            super().calcCurl(t = t)
             
     def initializeMagneticDomains(self):
         """Identifies the areas where domains point +/i in each of the three dircetions"""

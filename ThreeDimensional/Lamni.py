@@ -185,20 +185,20 @@ class Lamni():
         
         # version from pre-Jan 23
         # overestimates the sample at the edges
-        if outline == True: 
-            outline = np.zeros_like(mag)
-            mm = mag > 0
-            for i in range(mag.shape[2]): 
-                temp = binary_fill_holes(feature.canny(mm[...,i], 10))
-                while np.sum(temp) < sampleArea: #20000 FeRh
-                    print(i, np.sum(temp))
-                    temp = binary_fill_holes(binary_dilation(temp))
-                outline[...,i] = temp
+        # if outline == True: 
+        #     outline = np.zeros_like(mag)
+        #     mm = mag > 0
+        #     for i in range(mag.shape[2]): 
+        #         temp = binary_fill_holes(feature.canny(mm[...,i], 10))
+        #         while np.sum(temp) < sampleArea: #20000 FeRh
+        #             print(i, np.sum(temp))
+        #             temp = binary_fill_holes(binary_dilation(temp))
+        #         outline[...,i] = temp
         
         # Version from Feb 23
         # More accurate estimate of the actual sample
-        #if outline == True: 
-        #    outline = mag > 0.01*np.amax(mag)
+        if outline == True: 
+            outline = mag > 0.01*np.amax(mag)
         else: 
             outline = 0
         
