@@ -18,34 +18,55 @@ import matplotlib.pyplot as plt
 
 
 from pyJM.BasicFunctions import *
-from pyJM.ThreeDimensional.GUIClasses import *      
+#from pyJM.ThreeDimensional.GUIClasses import *      
       
 class Lamni(): 
-    
-    """Class to load and view the results of magnetic laminography scans
-    from the Donnelly matlab reconstruction code.
-    - will work as a single or as part of the LamniMulti
     """
+    A class that load, trim and process outputs of the Donnelly 3D xmcd 
+    reconstruction algarithm.
+ 
+    Attributes
+    ----------
+    file : str
+        file to load.
+    homedir : str
+        directory where file sits.
+    paramDict : dict
+        dictionary of parameters for loading process. Can be none
+    arraySize : float, optional
+        size of output arrays . The default is 200.
+    t : str, optional
+        identified for use in lamniMulti. The default is None.
+    """
+    
     def __init__(self, file, homedir, paramDict, arraySize = 200, t=None):
-        
-        """Initial loading in procedure
-        inputs:
-            
-        - homedir: directory where the folders containing the reconstructions are found
-        - paramDict: dictionary for each temperature with values for: 
-            - 'H or C': heat or cool
-            - 'Rot': angle through which to rotate the reconstruction so its straight
-            - 'Box': box to crop the data too
-            - 'thresh': Percentage threshold
-            - 'thetaoffset': value which to roll the array through so all the angles line up
-        - t determines if the object is a standalone reconstruction or as a group
-        will be auto-assigned depending on whether its run as lamni or lamnimulti
-        
         """
+        Initializes the Lamni object
+
+        Parameters
+        ----------
+        file : str
+            file to load.
+        homedir : str
+            directory where file sits.
+        paramDict : dict
+            dictionary of parameters for loading process. Can be none
+        arraySize : float, optional
+            size of output arrays . The default is 200.
+        t : str, optional
+            identified for use in lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+            
         """Load in the *mat file from the reconstructions"""
         os.chdir(homedir)
         print('Loading: {}'.format(file))
         os.chdir(file)
+      
         r = scipy.io.loadmat(glob.glob('*.mat')[-1])
         
         """Crop it so only the non-masked elements in the mag are taken forward"""
@@ -130,16 +151,17 @@ class Lamni():
             self.thetaDict.update({'{}'.format(t): r['theta_use'][0][::2]})
             self.projCalc.update({'{}'.format(t): r['proj_mag']})
             self.projMeas.update({'{}'.format(t): r['xmcd']})
+            self.projMeasCorrected.update({f'{t}': (r[ 'proj_out_all_cp_use'] - r[ 'proj_out_all_cm_use'])/((r[ 'proj_out_all_cp_use'] + r[ 'proj_out_all_cm_use']))})
         else:  
             """Standalone"""
             self.rec = rec
             self.temp = str(file[:3])
             self.generateMagneticArray(self.Params[str(file[:3])]['Box'], self.Params[str(file[:3])]['thresh'], arraySize)
-            self.magneticDomains()
             if 'theta_use' in list(r.keys()) == True: #FeRh experiment
                 self.theta = r['theta_use'][0][::2]
                 self.projCalc = r['proj_mag']
                 self.projMeas = r['xmcd']
+                self.projMeasCorrected = (r[ 'proj_out_all_cp_use'] - r[ 'proj_out_all_cm_use'])/((r[ 'proj_out_all_cp_use'] + r[ 'proj_out_all_cm_use']))
             elif 'theta_use' in list(r.keys()) != True and 'theta_cp' in list(r.keys()) == True: #PtPdMnSn
                 self.theta = r['theta_cp']
                 self.projMeas = (r['proj_out_all_cm_use'] - r['proj_out_all_cp_use'])/(r['proj_out_all_cm_use'] + r['proj_out_all_cp_use'])
@@ -149,8 +171,14 @@ class Lamni():
                     print('No calculated projections found - carrying on without them')
                     
     def JM_FeRh_LamniSpecific_Single(self): 
-        """Processes specific to JM experiment
-            PLEASE REMOVE IF NEEDED"""
+        """
+        Method Specific to JM FeRh experiment.Delete if required. 
+
+        Returns
+        -------
+        None.
+        """
+        
         for i in range(3):
             if i == 2:
                 self.magProcessed[i] = rotate(self.magProcessed[i], 180)
@@ -161,9 +189,29 @@ class Lamni():
             
         
         
-    def generateMagneticArray(self, b, thresh, arraySize, sampleArea = 20000, outline = True, t=None): 
-        """Processed both the mag and charge by cropping to Params['box'] 
-        and Thresholding to Params['thresh']"""
+    def generateMagneticArray(self, thresh, arraySize, outline = True, t=None): 
+        """
+        Performs the processing of the charge and magnetic arrays.
+        Generates the sample outline mask, the AF/FM masks
+        
+
+        Parameters
+        ----------
+        thresh : float
+           % threshold against which the magnetization magnitude is compared against .
+        arraySize : int
+            size of output array.
+        outline : bool, optional
+            calculate outline of sample. The default is True.
+        t : str, optional
+            identifier used with lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
         if t == None: 
             m = self.rec['mag']
             c = self.rec['charge']
@@ -182,18 +230,6 @@ class Lamni():
         cNew[int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), 
              int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = c[b[2]:b[3], b[0]:b[1], :]
         mag = np.sqrt(mNew[0]**2 + mNew[1]**2 + mNew[2]**2)
-        
-        # version from pre-Jan 23
-        # overestimates the sample at the edges
-        # if outline == True: 
-        #     outline = np.zeros_like(mag)
-        #     mm = mag > 0
-        #     for i in range(mag.shape[2]): 
-        #         temp = binary_fill_holes(feature.canny(mm[...,i], 10))
-        #         while np.sum(temp) < sampleArea: #20000 FeRh
-        #             print(i, np.sum(temp))
-        #             temp = binary_fill_holes(binary_dilation(temp))
-        #         outline[...,i] = temp
         
         # Version from Feb 23
         # More accurate estimate of the actual sample
@@ -232,7 +268,23 @@ class Lamni():
             self.sampleOutline = outline
             
     def volumeCalc(self, box = None, t = None):
-        """Estimates the volume using the magMasks and the sample outline"""
+        """
+        Method to calculate the volume of the sample by
+        counting FM pixels/total sample pixels
+
+        Parameters
+        ----------
+        box : list, optional
+            box to use. The default is None.
+        t : str, optional
+            identifier for use in lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+       
         if t != None: 
             if box == None: 
                 vol = {'volume': np.sum(self.magMasks['{}'.format(t)] == 1)/np.sum(self.sampleOutline['{}'.format(t)]), 
@@ -258,7 +310,20 @@ class Lamni():
             self.volume.update({'{}'.format(t): vol})
             
     def calcCurl(self, t = None): 
-        """Calculates magnetic curl"""
+        """
+        calculates magnetic curl
+
+        Parameters
+        ----------
+        t : str, optional
+            identifier for use with lamnimulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+
         if t != None: 
             m = np.copy(self.magProcessed['{}'.format(t)], order = "C")
         else: 
@@ -274,50 +339,46 @@ class Lamni():
         else: 
             self.curl = curl 
             
-    def magneticDomains(self, t = None):
-        """Finds area that point both +/- in each of the three magnetization direction"""
-        if t != None: 
-            m = np.copy(self.magProcessed['{}'.format(t)], order = "C")
-            s = np.copy(self.sampleOutline['{}'.format(t)], order = "C")
-        else: 
-            m = np.copy(self.magProcessed, order = "C") 
-            s = np.copy(self.sampleOutline, order = "C")
-        mxPos = np.where(m[0] > 0)
-        mxNeg = np.where(m[0] < 0)
-        myPos = np.where(m[1] > 0)
-        myNeg = np.where(m[1] < 0)
-        mzPos = np.where(m[2] > 0)
-        mzNeg = np.where(m[2] < 0)
-        cMask = np.where(s == False)
-
-        mxFin = np.zeros_like(m[0])
-        mxFin[mxPos] = 1
-        mxFin[mxNeg] = -1
-        myFin = np.zeros_like(mxFin)
-        myFin[myPos] = 1
-        myFin[myNeg] = -1
-        mzFin = np.zeros_like(mxFin)
-        mzFin[mzPos] = 1
-        mzFin[mzNeg] = -1
-
-        mxFin[cMask] = np.nan
-        myFin[cMask] = np.nan
-        mzFin[cMask] = np.nan
-        
-        if t != None: 
-            self.magMasks['{}'.format(t)][cMask] = -1
-            self.magDomains.update({'{}'.format(t): np.array([mxFin, myFin, mzFin])})
-        else: 
-            self.magMasks[cMask] = -1
-            self.magDomains = np.array([mxFin, myFin, mzFin])
-            
     def saveParaview(self, savePath, t = None): 
+        """
+        Saves .vtk file for use in paraview. 
+        File contains: 
+            "x": x-coords 
+            "y": y-coords 
+            "z": z-coords 
+            
+            "c": charge array
+            
+            "mx": x-component of magnetization
+            "my": y-component of magnetization
+            "mz": z-component of magnetization
+            "mag": magnitude of magnetization
+            "mag_vector": magnetization vector
+            
+            'AF': AF regions = AF.flatten(order = "F")
+
+        Parameters
+        ----------
+        savePath : str
+            file path for saved file, should include directory.
+        t : str, optional
+            identifier for use in lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
         import pyvista as pv
         if t != None: 
-            mx = self.magProcessed['{}'.format(t)][0]
-            my = self.magProcessed['{}'.format(t)][1]
-            mz = self.magProcessed['{}'.format(t)][2]
-            AF = self.magMasks['{}'.format(t)] == 0
+            mx = self.magProcessed[f'{t}'][0]
+            my = self.magProcessed[f'{t}'][1]
+            mz = self.magProcessed[f'{t}'][2]
+            AF = self.magMasks[f'{t}'] == 0
+            
+            c = self.chargeProcessed[f'{t}']
+            
             filtered = 0
             try: 
                 getattr(self, 'filtered')
@@ -357,12 +418,23 @@ class Lamni():
 
         # Add the data values to the cell data
         #mesh.cell_arrays["values"] = values.flatten(order="F")  # Flatten the array!
+        x,y,z = np.meshgrid(np.arange(mx.shape[0]),np.arange(mx.shape[1]),np.arange(mx.shape[2]))
+        
+        mesh.cell_arrays["x"] = x.flatten(order="F")
+        mesh.cell_arrays["y"] = y.flatten(order="F")
+        mesh.cell_arrays["z"] = z.flatten(order="F")
+        
+        mesh.cell_arrays["c"] = c.flatten(order="F")
+        
         mesh.cell_arrays["mx"] = mx.flatten(order="F")
         mesh.cell_arrays["my"] = my.flatten(order="F")
         mesh.cell_arrays["mz"] = mz.flatten(order="F")
+        
+        
         mag = np.sqrt(mx**2 + my**2 + mz**2)
         mesh.cell_arrays["mag"] = mag.flatten(order="F")
         mesh.cell_arrays["mag_vector"] = np.array([mx.flatten(order="F"), my.flatten(order="F"), mz.flatten(order="F")]).T
+        
         mesh.cell_arrays['AF'] = AF.flatten(order = "F")
         
         if filtered != 0: 
@@ -375,11 +447,25 @@ class Lamni():
     
 
         os.chdir(savePath)
-        mesh.save("{}K_{}_paraview.vtk".format(t, dateToSave(time = True)))
+        mesh.save("{}K_{}_paraview.vtk".format(t, dateToSave()))
         
             
     def CalculateVorticity(self, attribute, t = None):
-        """Calculates magnetic vorticity"""
+        """
+        Calculates magnetic vorticity on a given attribute
+
+        Parameters
+        ----------
+        attribute : str
+            attribute to use in calculation.
+        t : str, optional
+            for use in lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if t == None: 
             array = getattr(self, attribute)
             arrayMag = np.sqrt(array[0]**2 + array[1]**2 + array[2]**2)
@@ -424,6 +510,26 @@ class Lamni():
                                       'div': div}})
             
     def filterAttribute(self, attribute, sigma, t = None):
+        """
+        
+        will apply gaussian filter of width sigma to self.attribute
+        and returns it to self.filtered['attribute']
+        
+        Parameters
+        ----------
+        attribute : str
+            attribute to filter.
+        sigma : float
+            size of gaussian function to filter by.
+        t : str, optional
+            identifier for compatibility with laniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
         from scipy.ndimage import gaussian_filter
         if t == None: 
             array = np.copy(getattr(self, attribute))
@@ -443,21 +549,38 @@ class Lamni():
                                               gaussian_filter(array[2,...,k], sigma)])
             self.filtered.update({t: filtered})
             
-    def preImage(self, attribute, component, level): 
-        array = getattr(self, attribute)
-        array = array/np.sqrt(np.sum(array**2, axis = 0))
-        arrayRound = np.round(array[component], 1)
-        preimage = np.zeros_like(arrayRound)
-        pos = arrayRound == level
-        neg = arrayRound == -level
-        preimage[pos] = 1
-        preimage[neg] = -1
-        self.preimage = preimage
-        
-        
-            
-    
     def QuiverPlotSingle(self, attribute, direction, sliceNo, xinterval, yinterval, scale2 = 0.0001, pos = [2, 1, 0.5, 0.5], saveName = None, savePath = None): 
+        """
+        
+        plots quiver plot for attribute field
+        
+        Parameters
+        ----------
+        attribute : str
+            attribute to plot
+        direction : str
+            direction of plane to plot
+        sliceNo : int
+            sliceNo to plot.
+        xinterval : int
+            interval over which the arrows are plotted in x-direction.
+        yinterval : int
+            interval over which the arrows are plotted in y-direction.
+        scale2 : float, 
+            Scale of the arrows in teh quiver plot. The default is 0.0001.
+        pos : list, optional
+            multiplier for position of box. The default is [2, 1, 0.5, 0.5].
+        saveName : str, optional
+            saveName for file. The default is None.
+        savePath : str, optional
+            save destination for figure. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
         import matplotlib.pyplot as plt
         import matplotlib as mpl
         from matplotlib import cm
@@ -550,23 +673,32 @@ class Lamni():
             fig.savefig('{}.svg'.format(saveName), dpi=1200)
             os.chdir(here)
             
-    def countPixelDirection(self, binNo = 36, t = None): 
-        if t != None: 
-            array = self.magProcessed[t]
-            a = np.arctan2(array[1], array[0])
-            at = a[a != 0]
-            hist, bins = np.histogram(at, binNo)
-            self.direction.update({t: {'bins': bins[1:], 
-                              'counts': hist}})
-        else: 
-            array = self.magProcessed
-            a = np.arctan2(array[1], array[0])
-            at = a[a != 0]
-            hist, bins = np.histogram(at, binNo)
-            self.direction = {'bins': bins[1:], 
-                              'counts': hist}
-            
     def plotVectorField(self, field, t = None, box = None,  inplaneSkip = 0, outofplaneSkip = 0, saveName = None):
+        """
+        plots vector field using pyvista
+
+        Parameters
+        ----------
+        field : str
+            field to plot.
+        t : str, optional
+            identifier for use with lamniMulti. The default is None.
+        box : list, optional
+            box to show. The default is None.
+        inplaneSkip : int, optional
+            period over which to skip points in plane to reduce arrows. The default is 0.
+        outofplaneSkip : int, optional
+            period over which to skip points in plane to reduce arrows. The default is 0.
+        saveName : str, optional
+            file to save, should include directory if specific directory desired. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        
         import pyvista as pv
         if t == None: 
             if box == None:
@@ -622,6 +754,19 @@ class Lamni():
         
         
     def plotScalarField(self, field):
+        """
+        Plot scalar field using pyvista
+
+        Parameters
+        ----------
+        field : str
+            field to plot.
+
+        Returns
+        -------
+        None.
+
+        """
         import pyvista as pv
         scalar_field = getattr(self, field)
         nx, ny, nz = scalar_field.shape
@@ -649,30 +794,21 @@ class Lamni():
                   (0, 0, -90)]
         p.show(cpos=y_down)
         
-    def plotCropQuiver(self, attribute, sliceNo, box, interval, secondWindowAttribute = 'vorticity', secondWindowComponent = 2, ):
-        cmap = 'twilight_shifted'
-        fig, ax = plt.subplots(1, 2,figsize = (12,6), sharex = 'all')
-        if getattr(self, attribute).ndims != 4:
-            raise ValueError("Array of selected attribute must be 4-dimensional")
-        mx = getattr(self, attribute)[0, box[2]:box[3], box[0]:box[1], sliceNo]
-        my = getattr(self, attribute)[1, box[2]:box[3], box[0]:box[1], sliceNo]
-        x,y = np.meshgrid(np.arange(mx.shape[1]),
-                          np.arange(mx.shape[0]))
-        c = np.arctan2(my,mx)
-        ax[0].imshow(c, cmap = cmap, vmin = -np.pi, vmax = np.pi)
-        ax[0].quiver(x[::interval,::interval],y[::interval,::interval],mx[::interval,::interval], my[::interval,::interval], color = 'w', scale = 0.0001,
-                      scale_units='dots')
-        if getattr(self, secondWindowAttribute).ndim == 4: 
-            ax[1].imshow(getattr(self, secondWindowAttribute)[secondWindowComponent, 
-                                                              box[2]:box[3], 
-                                                              box[0]:box[1], 
-                                                              sliceNo],cmap = cmap)
-        elif getattr(self, secondWindowAttribute).ndim == 3: 
-            ax[1].imshow(getattr(self, secondWindowAttribute)[box[2]:box[3], 
-                                                              box[0]:box[1], 
-                                                              sliceNo],cmap = cmap)
             
     def countDistribution(self, t = None): 
+        """
+        count the number of the pixels pointing in either x,y or z directions
+
+        Parameters
+        ----------
+        t : str, optional
+            identifier for use with lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if t == None: 
             test = self.magProcessed/np.sqrt(np.sum(self.magProcessed**2, axis = 0))
             unique, counts = np.unique(np.argmax(test, axis = 0), return_counts=True)
@@ -684,224 +820,27 @@ class Lamni():
             self.distribution.update({t: {'directions': unique, 
                                  'counts': counts}})
             
-    def domainSizeAnalysis(self, thresh): 
-        from skimage import measure
-        """
-        split FM into different angles and analyze as a whole and as as a function of thickness
-        do the same with AFinto 
-        
-        """
-        angles = np.arctan2(self.magProcessed[1], -self.magProcessed[0])
-        """
-        Quadrant 1 np.pi/2 to np.pi
-        
-        """
-        m1 = angles > np.pi/2
-        m2 = angles < np.pi 
-        
-        mask1 = m1*m2
-        
-        labels = measure.label(mask1)
-        
-        props = measure.regionprops(measure.label(mask1))
-        l = {'{}'.format(x): measure.regionprops(measure.label(mask1[...,x])) for x in range(mask1.shape[2])}
-        
-        """Clean the data"""
-        vol = []
-        for p in props: 
-            if p['area'] > thresh: 
-                vol.append(p)
-        """thickness"""
-        n = {}
-        for k in list(l.keys()): 
-            new = []
-            for p in l[k]: 
-               if p['area'] > thresh: 
-                   new.append(p)
-            n.update({k: new})
-        domains = {'quad1': {'volume': vol, 
-                             'thickness': n}}
-        
-        """
-        Quadrant 2 0 to np.pi/2
-        
-        """
-        m1 = angles > 0
-        m2 = angles < np.pi/2 
-        
-        mask2 = m1*m2
-        
-        labels = measure.label(mask2)
-        
-        props = measure.regionprops(measure.label(mask2))
-        l = {'{}'.format(x): measure.regionprops(measure.label(mask2[...,x])) for x in range(mask2.shape[2])}
-        
-        """Clean the data"""
-        vol = []
-        for p in props: 
-            if p['area'] > thresh: 
-                vol.append(p)
-        """thickness"""
-        n = {}
-        for k in list(l.keys()): 
-            new = []
-            for p in l[k]: 
-               if p['area'] > thresh: 
-                   new.append(p)
-            n.update({k: new})
-        domains.update({'quad2': {'volume': vol, 
-                             'thickness': n}})
-        
-        """
-        Quadrant 3 -np.pi/2 to 0
-        
-        """
-        m1 = angles > -np.pi/2
-        m2 = angles < 0 
-        
-        mask3 = m1*m2
-        
-        labels = measure.label(mask3)
-        
-        props = measure.regionprops(measure.label(mask3))
-        l = {'{}'.format(x): measure.regionprops(measure.label(mask3[...,x])) for x in range(mask3.shape[2])}
-        
-        """Clean the data"""
-        vol = []
-        for p in props: 
-            if p['area'] > thresh: 
-                vol.append(p)
-        """thickness"""
-        n = {}
-        for k in list(l.keys()): 
-            new = []
-            for p in l[k]: 
-               if p['area'] > thresh: 
-                   new.append(p)
-            n.update({k: new})
-        domains.update({'quad3': {'volume': vol, 
-                             'thickness': n}})
-        
-        """
-        Quadrant 4 -np.pi to np.pi/2
-        
-        """
-        m1 = angles > -np.pi
-        m2 = angles < -np.pi/2 
-        
-        mask4 = m1*m2
-        
-        labels = measure.label(mask4)
-        
-        props = measure.regionprops(measure.label(mask4))
-        l = {'{}'.format(x): measure.regionprops(measure.label(mask4[...,x])) for x in range(mask4.shape[2])}
-        
-        """Clean the data"""
-        vol = []
-        for p in props: 
-            if p['area'] > thresh: 
-                vol.append(p)
-        """thickness"""
-        n = {}
-        for k in list(l.keys()): 
-            new = []
-            for p in l[k]: 
-               if p['area'] > thresh: 
-                   new.append(p)
-            n.update({k: new})
-        domains.update({'quad4': {'volume': vol, 
-                             'thickness': n}})
-        
-        """AF"""
     
-        
-        mask5 = self.magMasks == 0
-        
-        labels = measure.label(mask5)
-        
-        props = measure.regionprops(measure.label(mask5))
-        l = {'{}'.format(x): measure.regionprops(measure.label(mask5[...,x])) for x in range(mask5.shape[2])}
-        
-        """Clean the data"""
-        vol = []
-        for p in props: 
-            if p['area'] > thresh: 
-                vol.append(p)
-        """thickness"""
-        n = {}
-        for k in list(l.keys()): 
-            new = []
-            for p in l[k]: 
-               if p['area'] > thresh: 
-                   new.append(p)
-            n.update({k: new})
-        domains.update({'quad5': {'volume': vol, 
-                             'thickness': n}})
-        
-        self.quadMasks = {'1': mask1, 
-                          '2': mask2, 
-                          '3': mask3, 
-                          '4': mask4, 
-                          '5': mask5}
-        self.domains = domains
-    
-    def plotDomainInfo(self, prop, vol = None, quad = None): 
-        if vol == None: 
-            n = {}
-            nav = {}
-            for q in list(self.domains.keys()):
-                info = {}
-                av_info = []
-                for t in list(self.domains[q]['thickness'].keys()): 
-                    t_info = []
-                    for p in self.domains[q]['thickness'][t]: 
-                        t_info.append(p[prop])
-                    info.update({t: t_info})
-                    av_info.append(np.mean(t_info))
-                n.update({q: info})
-                nav.update({q: av_info})
                 
-        else: 
-            n = {}
-            nav = {}
-            for q in list(self.domains.keys()):
-                info = {}
-                t_info = []
-                for p in self.domains[q]['volume']: 
-                    t_info.append(p[prop])
-                n.update({q: t_info})
-                nav.update({q: np.mean(t_info)})
-                
-    def domainAnalysis2(self,thresh = 10, t = None): 
-        import porespy as ps
-        import pandas as pd
-        from skimage.measure import label, regionprops, regionprops_table
-        labels =['label', 'volume', 'bbox_volume',
-         'sphericity','surface_area', 'convex_volume',
-         'area','area_bbox', 'area_convex', 'equivalent_diameter_area',
-         'euler_number', 'extent', 'feret_diameter_max',
-         'area_filled', 'axis_major_length', 'axis_minor_length',
-         'solidity', 'temp']
-        
-        def coordComparison(array, i,j,k, coords): 
-            shape = array.shape
-            result = []
-            for c in coords:
-                try:
-                    result.append(array[i,j,k] == array[i+c[0],j+c[1],k+c[2]])
-                except: 
-                    result.append(False) 
-            return np.sum(result)         
+    def domainAnalysis2(self,thresh = 1, t = None): 
+        """
+        will measure properties of FM and AF areas above thresh using 
+        skiamge.measure.regionprops
 
-        def surfaceAreaFinder(im, row, coords):
-            here = np.zeros(shape = im.shape)
-            for c in row['coords']: 
-                here[c[0], c[1], c[2]] = 1
-            mask = [coordComparison(here, c[0],c[1],c[2], coords) for c in row['coords']]
-            result = np.zeros_like(here)
-            for i, c in enumerate(row['coords']): 
-                result[c[0], c[1], c[2]] = mask[i]
-            return result
+        Parameters
+        ----------
+        thresh : int, optional
+            area threshold above which things are considreed real. The default is 1.
+        t : str, optional
+            identifier used for lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        import pandas as pd
+        from skimage.measure import label, regionprops_table
         
         if t == None: 
             """Volume"""
@@ -932,7 +871,6 @@ class Lamni():
             
             """layer by layer"""
             for i in range(self.magMasks.shape[-1]): 
-                from skimage.measure import label, regionprops_table
                 """FM"""
                 print('Hard coded at the moment to remove influence of the suprious sample edges')
                 image = self.magMasks[...,i]#[25:175,40:160,i]
@@ -975,7 +913,6 @@ class Lamni():
             self.domains2individual = {'fm' : fm_individual, 
                                        'af' : af_individual}
         else: 
-            coords = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,-1], [0,0,1]]
             im = label(self.magMasks[t])#[25:175, 40:160, :])
             image2 = self.magMasks[t]
             regions = pd.DataFrame(regionprops_table(im, properties = ('centroid',
@@ -985,8 +922,6 @@ class Lamni():
                                              'image_filled')))
             cleaned = regions[regions['area'] > thresh]
             cleaned = cleaned[cleaned['area'] != np.sum(image2 == -1)]
-            cleaned['surface'] = cleaned.apply(lambda row: surfaceAreaFinder(image2, row, coords), axis = 1)
-            cleaned['surface_area'] = cleaned.apply(lambda row: np.sum(row['surface']), axis = 1)
             cleaned['top'] =  cleaned['bbox-2'] == 0
             cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
             cleaned['temp'] = t
@@ -1002,8 +937,6 @@ class Lamni():
                                              'image_filled')))
             cleaned = regions[regions['area'] > thresh]
             cleaned = cleaned[cleaned['area'] != np.sum(image2 == -1)]
-            cleaned['surface'] = cleaned.apply(lambda row: surfaceAreaFinder(image2, row, coords), axis = 1)
-            cleaned['surface_area'] = cleaned.apply(lambda row: np.sum(row['surface']), axis = 1)
             cleaned['top'] =  cleaned['bbox-2'] == 0
             cleaned['bottom'] = cleaned['bbox-5'] == im.shape[-1]
             cleaned['temp'] = t
@@ -1016,7 +949,6 @@ class Lamni():
             
             """layer by layer"""
             for i in range(self.magMasks[t].shape[-1]): 
-                from skimage.measure import label, regionprops_table
                 """FM"""
                 image = self.magMasks[t][...,i]#[25:175,40:160,i]
                 label_img = label(image)
@@ -1060,6 +992,19 @@ class Lamni():
                                        'af' : af_individual}})
             
     def calcDistributions(self, t = None):
+        """
+        calculates FM/AF regions per layer
+
+        Parameters
+        ----------
+        t : str, optional
+            identifier for use with lamniMulti. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if t == None: 
             fm = np.zeros(shape = self.magMasks.shape[-1])
             af = np.zeros(shape = self.magMasks.shape[-1])
@@ -1086,100 +1031,3 @@ class Lamni():
             self.distributions.update({t: {'fm': [np.array(fm), np.array(fmerr)],
                                      'af': [np.array(af), np.array(aferr)]}})
             print(f'Distribution calculated succesfully for {t} K')
-    def calcAsymmetries(self, t = None): 
-        if t == None: 
-            a = {}
-            for key in list(self.distributions.keys()):
-                array = np.array(self.distributions[key][0])
-                err = np.array(self.distributions[key][1])
-                data = (array-array[::-1])/np.amax(abs(array))
-                etemp = np.sqrt(err**2 + err[::-1]**2)
-                efin = data*np.sqrt((etemp/data)**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-                a.update({key: [array, efin]})
-                self.asym = a
-                
-        else: 
-            a = {}
-            for key in list(self.distributions[t].keys()):
-                array = np.array(self.distributions[t][key][0])
-                err = np.array(self.distributions[t][key][1])
-                data = (array-array[::-1])/np.amax(abs(array))
-                etemp = np.sqrt(err**2 + err[::-1]**2)
-                efin = data*np.sqrt((etemp/data)**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-                a.update({key: [array, efin]})
-                self.asym.update({t: a})
-    
-    def saveAsym(self, savePath, fileName = None, key = 'fm', t = None):
-        if t == None: 
-            if fileName == None: 
-                print('Default filename format selected')
-                d = dateToSave()
-                fileName = f'{d}_Asym_{self.t}.txt'
-            array = np.array(self.distributions[key][0])
-            err = np.array(self.distributions[key][1])
-            data = np.zeros(shape = (array.shape[0],3))
-            data[:,0] = (array-array[::-1])/np.amax(abs(array))
-            etemp = np.sqrt(err**2 + err[::-1]**2)
-            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-            data[:,2] =  np.arange(len(array))/len(array)
-            current = os.getcwd()
-            os.chdir(savePath)
-            np.savetxt(f'{fileName}.txt', data)
-            
-        else:
-            if t == None: 
-                if fileName == None: 
-                    print('Default filename format selected')
-                    d = dateToSave()
-                    fileName = f'{d}_Asym_{t}.txt'
-            array = np.array(self.distributions[t][key][0])
-            err = np.array(self.distributions[t][key][1])
-            data = np.zeros(shape = (array.shape[0],3))
-            data[:,0] = (array-array[::-1])/np.amax(abs(array))
-            etemp = np.sqrt(err**2 + err[::-1]**2)
-            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-            data[:,2] =  np.arange(len(array))/len(array)
-            current = os.getcwd()
-            os.chdir(savePath)
-            np.savetxt(f'{fileName}.txt', data)
-            os.chdir(current)
-        
-    def saveDistribution(self, savePath, fileName = None, key = 'fm', t = None):
-        if t == None: 
-            if fileName == None: 
-                print('Default filename format selected')
-                d = dateToSave()
-                fileName = f'{d}_Dist_{self.t}_{key}.txt'
-            array = np.array(self.distributions[key][0])
-            err = np.array(self.distributions[key][1])
-            data = np.zeros(shape = (array.shape[0],3))
-            data[:,0] = (array)/np.amax(abs(array))
-            etemp = np.sqrt(err**2 + err[::-1]**2)
-            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-            data[:,2] =  np.arange(len(array))/len(array)
-            current = os.getcwd()
-            os.chdir(savePath)
-            np.savetxt(f'{fileName}.txt', data)
-            
-        else:
-            if t == None: 
-                if fileName == None: 
-                    print('Default filename format selected')
-                    d = dateToSave()
-                    fileName = f'{d}_Dist_{t}_{key}.txt'
-            array = np.array(self.distributions[t][key][0])
-            err = np.array(self.distributions[t][key][1])
-            data = np.zeros(shape = (array.shape[0],3))
-            data[:,0] = (array)/np.amax(abs(array))
-            etemp = np.sqrt(err**2 + err[::-1]**2)
-            data[:,1] = data[:,0]*np.sqrt((etemp/data[:,0])**2 + (err[np.argwhere(array == np.amax(abs(array)))[0][0]]/np.amax(abs(array)))**2)
-            data[:,2] =  np.arange(len(array))/len(array)
-            current = os.getcwd()
-            os.chdir(savePath)
-            np.savetxt(f'{fileName}.txt', data)
-            os.chdir(current)
-    
-            
-            
-    
-                        

@@ -21,31 +21,35 @@ from pyJM.BasicFunctions import *
 from pyJM.ThreeDimensional.Lamni import Lamni
 
 class LamniMulti(Lamni): 
-    """Class to load and view the results of magnetic laminography scans
-    from the Donnelly matlab reconstruction code.
     """
+    A class that load, trim and process multiple outputs of the Donnelly 3D xmcd 
+    reconstruction algarithm.
+ 
+    Attributes
+    ----------
+    homedir : str
+        directory where files sits.
+    paramDict : dict
+        dictionary of parameters for loading process. Can be none
+    
+    """
+    
     def __init__(self, homedir, paramDict):
-        """Initial loading in procedure
-        inputs: 
-        - homedir: directory where the folders containing the reconstructions are found
-        - paramDict: dictionary for each temperature with values for: 
-            - 'H or C': heat or cool
-            - 'Rot': angle through which to rotate the reconstruction so its straight
-            - 'Box': box to crop the data too
-            - 'thresh': Percentage threshold
-            - 'thetaoffset': value which to roll the array through so all the angles line up
-        
-        IMPORTANT: 
-            - Remove self.JM_FeRh_LamniSpecific when necessary
         """
-        """Set up dictionaries for the data"""
-        self.Params = paramDict
-        self.recDict = {}
-        self.projCalc = {}
-        self.projMeas = {}
-        self.thetaDict = {}
+        Initializes the Lamni  multiobject
+
+        Parameters
+        ----------
+        homedir : str
+            directory where file sits.
+        paramDict : dict
+            dictionary of parameters for loading process. Can be none
+
+        Returns
+        -------
+        None.
         
-        """Load in the data for each of the data sets"""
+        """
         os.chdir(homedir)
         files = glob.glob('*')
         files.remove('AnalysisParams.csv')
@@ -59,8 +63,14 @@ class LamniMulti(Lamni):
         self.zoomArrays()
                 
     def JM_FeRh_LamniSpecific(self): 
-        """Processes specific to JM experiment
-            PLEASE REMOVE IF NEEDED"""
+        """
+        Method Specific to JM FeRh experiment.Delete if required. 
+
+        Returns
+        -------
+        None.
+        """
+        
         for i in range(3):
             if i == 2:
                 self.magProcessed['440'][i] = rotate(self.magProcessed['440'][i], 180)
@@ -70,15 +80,13 @@ class LamniMulti(Lamni):
         self.magMasks['440'] = rotate(self.magMasks['440'], 180) 
     
     def initializeMagneticArray(self): 
-        """Initialize Magnetic arrays
-        outputs: 
-        - charge: charge values of the reconstruction
-        - magProcessed: rotated, cropped and thresholded magnetic arrays
-        - magDict: magnitude dictionary
-        - magMasks: area's where threshold condition is met
-        - chargeProcessed: charge values for masked areas
-        - sampleOutline: outline of the sample for the volume calculation
-        
+        """
+        Runs through lamni.generateMagneticArray for all files
+
+        Returns
+        -------
+        None.
+
         """
         
         self.charge = {}
@@ -92,8 +100,16 @@ class LamniMulti(Lamni):
         self.JM_FeRh_LamniSpecific()
         
     def zoomArrays(self): 
-        """zoomed all magnetic ararys along the z direction so that 
-        they're all the same height when making figures"""
+        """
+        zoomed all magnetic ararys along the z direction so that 
+        they're all the same height when making figures
+        
+
+        Returns
+        -------
+        None.
+
+        """
         shape = np.zeros(shape = len(list(self.magProcessed.keys())))
         i = 0
         for t in list(self.magProcessed.keys()): 
@@ -129,50 +145,115 @@ class LamniMulti(Lamni):
             self.zoomedFinal.update({'{}'.format(t): new})
     
     def volumeCalculation(self): 
-        """Calculates volume from the magnetic/charge ratio"""
+        """
+        Runs through volume calculation for all values of t
+
+        Returns
+        -------
+        None.
+
+        """
         self.volume = {}
         for t in list(self.magProcessed.keys()): 
             super().volumeCalc(t = t)
             
     def calculateCurl(self): 
-        """Calculates mathematical curl"""
+        """
+        Runs through curl calculation for all values of t
+
+        Returns
+        -------
+        None.
+
+        """
         self.curl = {}
         for t in list(self.magProcessed.keys()): 
             super().calcCurl(t = t)
-            
-    def initializeMagneticDomains(self):
-        """Identifies the areas where domains point +/i in each of the three dircetions"""
-        self.magDomains = {}
-        for t in list(self.magProcessed.keys()): 
-            super().magneticDomains(t)
     
     def saveParaviewAll(self, savePath): 
-        """Saves paraview file for each of the temperatures"""
+        """
+        saves paraview file for all t
+
+        Parameters
+        ----------
+        savePath : str
+            path to save files to.
+
+        Returns
+        -------
+        None.
+
+        """
         for t in list(self.magProcessed.keys()): 
-            super().saveParaview(self, savePath, t) 
+            super().saveParaview(savePath, t) 
     
     def calculateVorticity(self, attribute): 
-        """Calculates magnetic vorticity for each temperature"""
+        """
+        calculates vorticity for all t
+
+        Parameters
+        ----------
+        attribute : str
+            attribute to use in calculation.
+
+        Returns
+        -------
+        None.
+
+        """
         self.vorticity = {}
         for t in list(self.magProcessed.keys()): 
             super().CalculateVorticity(attribute, t)
             
     def filterAttribute(self, attribute, sigma): 
+        """
+        applies gaussian filter of size sigma to attribute for all t
+
+        Parameters
+        ----------
+        attribute : str
+            attribute to filter.
+        sigma : float
+            width of gaussian filter.
+
+        Returns
+        -------
+        None.
+
+        """
         self.filtered = {}
         for t in list(self.magProcessed.keys()): 
             super().filterAttribute(attribute, sigma, t)
     
-    def calculateDirectionHistorgrams(self, binNo = 36): 
-        self.direction = {}
-        for t in list(self.magProcessed.keys()): 
-            super().countPixelDirection(binNo, t)
             
     def countDistribution(self): 
+        """
+        runs through count dictribution of pixels pointing in a given directipom 
+        for all t
+
+        Returns
+        -------
+        None.
+
+        """
         self.distribution = {}
         for t in list(self.magProcessed.keys()): 
             super().countDistribution(t)
     
-    def domainAnalysis2(self, thresh = 10): 
+    def domainAnalysis2(self, thresh = 1): 
+        """
+        runs through lamni.domainAnalysis2 for all t
+
+        Parameters
+        ----------
+        thresh : int, optional
+            area threshold for domains. The default is 1.
+
+        Returns
+        -------
+        None.
+
+        """
         self.domains2 = {}
         self.domains2individual = {}
         for t in list(self.magProcessed.keys()): 
@@ -180,6 +261,14 @@ class LamniMulti(Lamni):
         self.finalizeDomain2Analysis()
         
     def finalizeDomain2Analysis(self): 
+        """
+        cleans and processes results of the domainanalysis2
+
+        Returns
+        -------
+        None.
+
+        """
         import pandas as pd
         temp_keys = list(self.domains2individual.keys())
         final_fm_ind = pd.DataFrame(self.domains2individual[temp_keys[0]]['fm'])
@@ -202,7 +291,24 @@ class LamniMulti(Lamni):
         self.finalFM = final_fm_all
         self.finalAF = final_af_all
         
-    def generateHeatCoolDataframe(self, attribute, scans, sortAttribute = 'temp'): 
+    def generateHeatCoolDataframe(self, attribute, scans, sortAttribute = 'temp'):
+        """
+        splits dataframe by scans 
+
+        Parameters
+        ----------
+        attribute : str
+            dataframe to use.
+        scans : list
+            list of scans to use.
+        sortAttribute : str, optional
+            attribute to use to sort the dataframe. The default is 'temp'.
+
+        Returns
+        -------
+        None.
+
+        """
         df = getattr(self, attribute)
         final = df[df[sortAttribute] == scans[0]]
         for t in scans[1:]:
@@ -213,6 +319,14 @@ class LamniMulti(Lamni):
                              'sortedby': sortAttribute}
         
     def defineSizes(self): 
+        """
+        define pixel size in nm
+
+        Returns
+        -------
+        None.
+
+        """
         sizes = {}
         for t in list(self.magProcessed.keys()): 
             d = self.sampleOutline[t] 
@@ -227,6 +341,25 @@ class LamniMulti(Lamni):
     def generateFinalDataframe(self, attrs, scans = [[310,335,375], [300, 330, 440]], 
                                labels1 = ['fm','af'],
                                labels2 = {310: 'heat', 300: 'cool'}): 
+        """
+        creates final heat, cool dataframe from domainAnalysis2
+
+        Parameters
+        ----------
+        attrs : str
+            type of scan direction - either heat or cool.
+        scans : list, optional
+            list of scans in each attr. The default is [[310,335,375], [300, 330, 440]].
+        labels1 : list, optional
+            label for the output. The default is ['fm','af'].
+        labels2 : list, optional
+            labels the output either heat or cool. The default is {310: 'heat', 300: 'cool'}.
+
+        Returns
+        -------
+        None.
+
+        """
         lfin = {}
         for a,l in zip(attrs, labels1): 
             lfin.update({a: l})
@@ -253,28 +386,36 @@ class LamniMulti(Lamni):
         self.finals = finals
         
     def generateProbability(self, array, categories): 
+        """
+        generates probability of finding domains in array at categories
+
+        Parameters
+        ----------
+        array : str
+            finals array name.
+        categories : list
+            ilst of categories to look at .
+
+        Returns
+        -------
+        None.
+
+        """
         out = [np.sum(self.finals[array][cat] > 0)/len(self.finals[array][cat]) for cat in categories]
         outerr = [np.sum(self.finals[array][cat] > 0)/len(self.finals[array][cat])*np.sqrt(1/np.sum(self.finals[array][cat] > 0) + 1/len(self.finals[array][cat])) for cat in categories]
         self.probs = [categories, out, outerr]
         
     def calcDistributions(self): 
+        """
+        loops through to calcualte the distributions for all t
+
+        Returns
+        -------
+        None.
+
+        """
         self.distributions = {}
         for t in list(self.magProcessed.keys()): 
             super().calcDistributions(t)
         print('Distributions calculated successfully')
-    
-    def calcAsym(self): 
-        self.asym = {}
-        for t in list(self.magProcessed.keys()): 
-            super().calcAsymmetries(t)
-        print('Asymmetries calculated successfully')
-        
-    def saveAsym(self, savePath, fileName = None, key = 'fm'): 
-        for t in list(self.magProcessed.keys()): 
-            super().saveAsym(savePath, fileName, key, t)
-        print(f'Asymmetries saved in {savePath}')
-        
-    def saveDistribution(self, savePath, fileName = None, key = 'fm'): 
-        for t in list(self.magProcessed.keys()): 
-            super().saveDistribution(savePath, fileName, key, t)
-        print(f'Distributions saved in {savePath}')
+

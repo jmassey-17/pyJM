@@ -1,18 +1,40 @@
 # -*- coding: utf-8 -*-
 """
+Created on Thu Sep 21 09:26:10 2023
+
+@author: massey_j
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Sep  8 12:56:13 2023
 
 @author: massey_j
 """
 import os
-os.chdir(r'C:\Data\FeRh\Figures_20230912\SideView')
+wkdir = r'C:\Data\FeRh\Figures_20230912\FMDomain'
+if os.path.exists(wkdir) != True: 
+    os.mkdir(wkdir)
+    os.chdir(wkdir)
+else: 
+    os.chdir(wkdir)
 #for t in list(recs.zoomedFinal.keys()):
+
 self = recs
 field = 'zoomedFinal'
-t = '330'
-box = [60, 120, 40, 100]
-inplaneSkip = 5
-outofplaneSkip = 3
+#Fm
+t = '310'
+box = None
+box2 = [80,120,20,50]
+
+# #AF 
+# t = '330'
+# box2 = [60, 120, 40, 100]
+# inplaneSkip = 5
+# outofplaneSkip = 3
+
+#box2 = [val//inplaneSkip for val in box2]
+
 
 
 
@@ -23,12 +45,18 @@ if t == None:
     if box == None:
         f = getattr(self, field)
     else: 
-        f = getattr(self, field)[:, box[2]:box[3], box[0]:box[1], :]
+        f = getattr(self, field)
+        b = np.zeros(shape = f.shape[1:])
+        b[box[2]:box[3], box[0]:box[1], :] = 1
+        f = f[:, box[2]:box[3], box[0]:box[1], :]
 else:  
     if box == None:
         f = getattr(self, field)[t]
+        b = np.zeros(shape = f.shape[1:])
+        b[box2[2]:box2[3], box2[0]:box2[1], :] = 1
     else: 
-        f = getattr(self, field)[t][:, box[2]:box[3], box[0]:box[1], :]
+        f = getattr(self, field)[t]
+        
         
 #f = self.vorticity[t]['raw']
 
@@ -39,22 +67,12 @@ mag_field[np.isnan(mag_field)] = 0
 if inplaneSkip != 0: 
     vector_field = vector_field[:, ::inplaneSkip, ::inplaneSkip, :]
     mag_field = mag_field[::inplaneSkip, ::inplaneSkip, :]
+    b = b[::inplaneSkip, ::inplaneSkip, :]
 if outofplaneSkip != 0: 
     vector_field = vector_field[:,..., ::outofplaneSkip]
     mag_field = mag_field[..., ::outofplaneSkip]
-    
-# # for the cross-tie wall
-# test = np.zeros_like(recs.zoomedFinal['440'])
-# for i in range(test.shape[0]): 
-#     for j in range(test.shape[-1]): 
-#         test[i,...,j] = rotate(recs.zoomedFinal['440'][i,...,j], 45)
-# f = test[:,25:150,75:125,:]
+    b = b[..., ::outofplaneSkip]
 
-# vector_field = f/np.sqrt(np.sum(f**2, axis = 0))
-# if inplaneSkip != 0: 
-#     vector_field = vector_field[:, ::inplaneSkip, ::inplaneSkip, :]
-# if outofplaneSkip != 0: 
-#     vector_field = vector_field[:,..., ::outofplaneSkip]
 _, nx, ny, nz = vector_field.shape
 size = vector_field[0].size
 
@@ -120,46 +138,31 @@ if outofplaneSkip != 0:
 nx, ny, nz = scalar_field.shape
 size = scalar_field[0].size
 
-
+scalar_field = b
 origin = (-(nx - 1) * 1 / 2, -(ny - 1) * 1 / 2, -(nz - 1) * 1 / 2)
 mesh1 = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
 mesh2 = pv.UniformGrid((nx, ny, nz), (1., 1., 1.), origin)
 mesh1['scalars'] = scalar_field.flatten(order = "F")
 mesh2['scalars'] = scalar_field2.flatten(order = "F")
-#mesh1['scalars'][rand_ints] = 0
-
-# # remove some values for clarity
-#num_arrows = mesh1['scalars'].shape[0]
-#rand_ints = np.random.choice(num_arrows - 1, size=int(num_arrows - 2*num_arrows / np.log(num_arrows + 1)),
-#                             replace=False)
 
 
 pv.set_plot_theme("document")
 p = pv.Plotter()
 p.camera_position = 'xy'
 p.camera.roll = -90
-# #p.camera.azimuth = 0
-p.camera.elevation = -45
+# # #p.camera.azimuth = 0
+# p.camera.elevation = -45
 
-
-
-
-p.camera.position = (38.72378309369189, 0.0, 38.72378309369189)
+p.camera.position =  (0.0, 0.0, 90)
 
 opacity = [0,.7]
+opacity2 = [0,.5]
 p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted', clim = [-np.pi, np.pi], show_scalar_bar=False)
-p.add_volume(mesh1, scalars='scalars', opacity = opacity, show_scalar_bar = False)
-#p.add_volume(mesh2, scalars='scalars', cmap='twilight_shifted', opacity = opacity, show_scalar_bar = False)
+p.add_volume(mesh1, opacity = opacity2, cmap = 'Greens', show_scalar_bar = False)
+p.add_volume(mesh2, scalars='scalars', cmap='twilight_shifted', opacity = opacity, show_scalar_bar = False)
 p.add_bounding_box()
-p.add_axes()
+#p.add_axes(labels_off = True, line_width = 5)
 
 
-y_down = [(0, 80, 0),
-          (0, 0, 0),
-          (0, 0, -90)]
-
-z_down = [(0, 0, 180),
-(0, 0, 0),
-(-40, 1, 0)]
-p.save_graphic(f'{t}_AFDomain.svg')
+#p.save_graphic(f'{t}_topdown_withgreybox.svg')
 p.show()

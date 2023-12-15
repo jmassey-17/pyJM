@@ -18,8 +18,24 @@ NNTranslations, NNNTranslations, fourSpinTranslations = initializeTranslations()
        
 def loadAndProcess(file):
     """
-    Takes a MC output file and splits it into position (x,y,z), spin (sx, sy, sz), heat capacity (hc)
-    and order parameters (AF, FM)
+    loads file from txt and splits into data categories
+
+    Parameters
+    ----------
+    file : str
+        file to load.
+
+    Returns
+    -------
+    pos: np.array
+        position in x,y,z of spin
+    spin: np.array
+        spin vector
+    hc: np.array
+        heat capacity
+    OP: np.array
+        order parameters.
+
     """
     data = np.genfromtxt(file, skip_header=2)
     x = data[:,0].reshape((int(max(data[:,0]))+1, int(max(data[:,1]))+1, int(max(data[:,2]))+1))
@@ -38,8 +54,19 @@ def transitionTemperatureCoordinationNumber(wkdir):
     Takes wkdir and iterates through the processors to find the transition temperature f 
     of a given pixel with a given coordination number and collects the results
 
+    Parameters
+    ----------
+    wkdir : str
+        directory where files are held.
+
+    Returns
+    -------
+    None.
+
     """
+    
     os.chdir(wkdir)
+    #Looks for PBCS
     if wkdir.find('zPBCon') != -1: 
         PBCs = [True,True,True]
     else: 
@@ -60,9 +87,9 @@ def transitionTemperatureCoordinationNumber(wkdir):
             defects = np.genfromtxt('spin_freeze.list', skip_header = 1)
         else: 
             defects = []
-
+        # load dummy file for sizes
         pos, spin, hc, op = loadAndProcess(configs[0])
-
+        # calculate the coordination numbers of all the pixels in teh array
         coordsNN = np.array([translationChecker(i,j,k, NNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
         coordinationNumberNN = coordsNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
 
@@ -74,7 +101,7 @@ def transitionTemperatureCoordinationNumber(wkdir):
         coordinationNumberFourSpin = np.sum(coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,0].astype(int), axis = -1)/3
         #         #activeFourSpinTranslations = coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,1]
 
-
+        # identify unique coordination numbers for latetr collection
         startingNNCoordValues = np.unique(coordinationNumberNN)
         startingNNNCoordValues = np.unique(coordinationNumberNNN)
         startingFourSpinCoordValues = np.unique(coordinationNumberFourSpin)
@@ -107,14 +134,15 @@ def transitionTemperatureCoordinationNumber(wkdir):
                 defects = []
 
 
-
+            # Calculate the coordination numbers for each pixel
             coordsNN = np.array([translationChecker(i,j,k, NNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
             coordinationNumberNN = coordsNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
             coordsNNN = np.array([translationChecker(i,j,k, NNNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
             coordinationNumberNNN = coordsNNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
             coordsFourSpin = np.array([[translationChecker(i,j,k, translationSet, spin, PBCs,defects) for translationSet in fourSpinTranslations] for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
             coordinationNumberFourSpin = np.sum(coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,0].astype(int), axis = -1)/3   
-
+            
+            #collect all instances of a given value
             for val in np.unique(coordinationNumberNN): 
                 mask = coordinationNumberNN == val
                 if val in list(NNCoord.keys()): 
@@ -134,7 +162,7 @@ def transitionTemperatureCoordinationNumber(wkdir):
                 else: 
                     fourSpinCoord.update({val: list(np.ravel(transitionTemperatures[mask]))})
             os.chdir(wkdir)
-
+        # save
         for array, filename in zip([NNCoord,NNNCoord, fourSpinCoord], ['CoordNN', 'CoordNNN','fourSpinCoord']): 
                 np.save(f'{filename}_Tt_raw.npy', array)
         finalNN = {key: [np.nanmean(NNCoord[key]), np.nanstd(NNCoord[key])/np.sqrt(len(NNCoord[key]))] for key in list(NNCoord.keys())}
@@ -147,9 +175,21 @@ def transitionTemperatureCoordinationNumber(wkdir):
 # Identify temps
 def loadAndProcessCoordinationNumber(wkdir):
     """
-    Takes wkdir and iterates through the processors to find the coordination number each pixel and collects the results
+    Takes wkdir and iterates through the processors
+    to find the coordination number each pixel and collects the results
+
+
+    Parameters
+    ----------
+    wkdir : str
+        directory.
+
+    Returns
+    -------
+    None.
 
     """
+    # check for zPBC on or off
     os.chdir(wkdir)
     if wkdir.find('zPBCon') != -1: 
         PBCs = [True,True,True]
@@ -183,7 +223,7 @@ def loadAndProcessCoordinationNumber(wkdir):
         dots = list(find_all(config, '.'))
         configTemps.append(config[dots[0]+1:dots[1]])
     
-    #toDo = [t for t in configTemps if t not in t_fs or t not in t_nn or t not in t_nnn]
+    # determine those remaining
     if len(t_nn) == 0 or len(t_nnn) == 0 or len(t_fs) == 0: 
         configsToDo = configs
     else: 
@@ -191,35 +231,31 @@ def loadAndProcessCoordinationNumber(wkdir):
     if len(configsToDo) != 0:
         #identify the processor folders
         configs = np.sort(glob.glob('*config*'))
-        #alreadyCalculated = len(np.sort(glob.glob('*fourSpinCoord*')[::2]))
         processors = [file for file in np.sort(glob.glob('*')) if file[0].isnumeric() == True]
         os.chdir(processors[0])
         configs = np.sort(glob.glob('*config*'))
-
+        #look for defcets
         if os.path.exists('spin_freeze.list'): 
             defects = np.genfromtxt('spin_freeze.list', skip_header = 1)
         else: 
             defects = []
-
+        #load dummy variable for array sizes
         pos, spin, hc, op = loadAndProcess(configs[0])
-
+        # calculate coordination hnumbers
         coordsNN = np.array([translationChecker(i,j,k, NNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
         coordinationNumberNN = coordsNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
 
         coordsNNN = np.array([translationChecker(i,j,k, NNNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
         coordinationNumberNNN = coordsNNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
-        #         #activeNNTranslations = coordsNNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,1]
-
+        
         coordsFourSpin = np.array([[translationChecker(i,j,k, translationSet, spin, PBCs,defects) for translationSet in fourSpinTranslations] for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
         coordinationNumberFourSpin = np.sum(coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,0].astype(int), axis = -1)/3
-        #         #activeFourSpinTranslations = coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,1]
-
-
+        
+        #identify unique values
         startingNNCoordValues = np.unique(coordinationNumberNN)
         startingNNNCoordValues = np.unique(coordinationNumberNNN)
         startingFourSpinCoordValues = np.unique(coordinationNumberFourSpin)
 
-        #print(startingNNNCoordValues, startingFourSpinCoordValues)
          # return to master directory
         os.chdir(wkdir)
 
@@ -231,7 +267,8 @@ def loadAndProcessCoordinationNumber(wkdir):
             NNCoord = {key: [] for key in startingNNCoordValues}
             NNNCoord = {key: [] for key in startingNNNCoordValues}
             fourSpinCoord = {key: [] for key in startingFourSpinCoordValues}
-
+            
+            #iterate through processors
             for p in processors:
                 os.chdir(p)
                 pos, spin, hc, op = loadAndProcess(config)
@@ -239,14 +276,15 @@ def loadAndProcessCoordinationNumber(wkdir):
                     defects = np.genfromtxt('spin_freeze.list', skip_header = 1)
                 else: 
                     defects = []
-
+                # calculate the coordination numbers
                 coordsNN = np.array([translationChecker(i,j,k, NNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
                 coordinationNumberNN = coordsNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
                 coordsNNN = np.array([translationChecker(i,j,k, NNNTranslations, spin, PBCs,defects) for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
                 coordinationNumberNNN = coordsNNN.reshape(spin.shape[1], spin.shape[2], spin.shape[3],2)[...,0].astype(int)
                 coordsFourSpin = np.array([[translationChecker(i,j,k, translationSet, spin, PBCs,defects) for translationSet in fourSpinTranslations] for i in range(spin.shape[1]) for j in range(spin.shape[2]) for k in range(spin.shape[3])], dtype = object)
                 coordinationNumberFourSpin = np.sum(coordsFourSpin.reshape(spin.shape[1], spin.shape[2], spin.shape[3],len(fourSpinTranslations),2)[...,0].astype(int), axis = -1)/3   
-
+                
+                #group by number
                 for val in np.unique(coordinationNumberNN): 
                     mask = coordinationNumberNN == val
                     if val in list(NNCoord.keys()): 
@@ -266,6 +304,7 @@ def loadAndProcessCoordinationNumber(wkdir):
                     else: 
                         fourSpinCoord.update({val: list(op[1][mask])})
                 os.chdir(wkdir)
+            #save
             for array, filename in zip([NNCoord,NNNCoord, fourSpinCoord], ['CoordNN', 'CoordNNN','fourSpinCoord']): 
                 np.save(f'{filename}_{temp}_raw.npy', array)
             finalNN = {key: [np.nanmean(NNCoord[key]), np.nanstd(NNCoord[key])/np.sqrt(len(NNCoord[key]))] for key in list(NNCoord.keys())}
@@ -276,18 +315,33 @@ def loadAndProcessCoordinationNumber(wkdir):
                 
 
 def analyseAndDistribute(master): 
-    """Watches a variety of folders and collects finished results
-    File system set up is very specific so please ask if help is required to change this 
     """
+    Watches all folders in master that meet a specific criteria
+    please ask if help is required to change this 
+
+    Parameters
+    ----------
+    master : str
+        master folder.
+
+    Returns
+    -------
+    None.
+
+    """
+    #define folders
     destination = master
     processing = [folder for folder in os.listdir(master) if folder.find('Process') != -1][0]
     processingFolder = os.path.join(master, processing)
     
+    # continuous loop through
     while True:
         started = []
         active = []
         finished = []
+        #find folders with toRun in the name
         toRunFolders = [file for file in os.listdir(master) if file.find('toRun') != -1]
+        #loop through
         for folder in toRunFolders: 
             wkdir = os.path.join(master, folder)
             toRun = [file for file in sorted(os.listdir(wkdir)) if file.find('.sh') == -1 and file.find('slurm') == -1]
@@ -300,25 +354,29 @@ def analyseAndDistribute(master):
                 step = int(key[dashes[3]+1:ks[2]])
                 simLength.update({key: int(abs(startTemp-endTemp)/step + 1)})
             s  = [file for file in toRun if sorted(os.listdir(os.path.join(wkdir, file)))[0].isnumeric()]
+            #started are those that have started the sims
             for item in s: 
                 started.append(os.path.join(wkdir,item))
             configs = {}
+            #check number of configs
             for file in s: 
                 configs.update({file: [f for f in os.listdir(os.path.join(wkdir, file)) if f.find('config') != -1]})
             a = [key for key in list(configs.keys()) if len(configs[key]) != simLength[key]]
             f = [key for key in list(configs.keys()) if len(configs[key]) == simLength[key]]
+            # if num configs < num sims then still active
             for item in a: 
                 active.append(os.path.join(wkdir,item))
+            # else has finished
             for item in f: 
                 finished.append(os.path.join(wkdir,item))
     
-    
+        #move all finished files to processed
         for file in finished: 
             print(f'{file} has finished, moving to {processingFolder}.')
             slashes = list(find_all(file, '/'))
             filename = file[slashes[-1]+1:]
             shutil.move(file, os.path.join(processingFolder, filename))
-    
+        #process all files in processed folder and move to final folder afterwards
         for i, folder in enumerate(os.listdir(processingFolder)):
             print(f'{i} of {len(os.listdir(processingFolder))}')
             finished = [file for file in os.listdir(os.path.join(processingFolder, folder)) if file.find('fourSpinCoord') != -1 and file.find('Tt') == -1]
