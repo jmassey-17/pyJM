@@ -53,13 +53,19 @@ class LamniMulti(Lamni):
         os.chdir(homedir)
         files = glob.glob('*')
         files.remove('AnalysisParams.csv')
+        
+        self.recDict = {}
+        self.thetaDict = {}
+        self.projCalc = {}
+        self.projMeas = {}
+        self.projMeasCorrected = {}
+        
         for file in files:
             if file[-1] != 'k': 
                 super().__init__(file, homedir, paramDict, t = str(file[:3]))
         
         """ Calculate relevant quantities"""
         self.initializeMagneticArray()
-        self.initializeMagneticDomains()
         self.zoomArrays()
                 
     def JM_FeRh_LamniSpecific(self): 
@@ -96,7 +102,7 @@ class LamniMulti(Lamni):
         self.chargeProcessed = {}
         self.sampleOutline = {}
         for t in list(self.Params.keys()):
-            super().generateMagneticArray(self.Params[t]['Box'], self.Params[t]['thresh'], 200, outline = True, t = t)
+            super().generateMagneticArray(t = t)
         self.JM_FeRh_LamniSpecific()
         
     def zoomArrays(self): 

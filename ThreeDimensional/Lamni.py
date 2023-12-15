@@ -33,7 +33,7 @@ class Lamni():
         directory where file sits.
     paramDict : dict
         dictionary of parameters for loading process. Can be none
-    arraySize : float, optional
+    arraySize : int, optional
         size of output arrays . The default is 200.
     t : str, optional
         identified for use in lamniMulti. The default is None.
@@ -51,7 +51,7 @@ class Lamni():
             directory where file sits.
         paramDict : dict
             dictionary of parameters for loading process. Can be none
-        arraySize : float, optional
+        arraySize : int, optional
             size of output arrays . The default is 200.
         t : str, optional
             identified for use in lamniMulti. The default is None.
@@ -80,7 +80,9 @@ class Lamni():
         self.t = str(file[:3])
         self.rawCharge = rec_charge 
         self.rawMag = rec_mag
+        self.arraySize = arraySize
         
+    
         
         if paramDict == None: 
             """Initialize the param dict for first time use"""
@@ -156,7 +158,7 @@ class Lamni():
             """Standalone"""
             self.rec = rec
             self.temp = str(file[:3])
-            self.generateMagneticArray(self.Params[str(file[:3])]['Box'], self.Params[str(file[:3])]['thresh'], arraySize)
+            self.generateMagneticArray()
             if 'theta_use' in list(r.keys()) == True: #FeRh experiment
                 self.theta = r['theta_use'][0][::2]
                 self.projCalc = r['proj_mag']
@@ -189,7 +191,7 @@ class Lamni():
             
         
         
-    def generateMagneticArray(self, thresh, arraySize, outline = True, t=None): 
+    def generateMagneticArray(self, outline = True, t=None): 
         """
         Performs the processing of the charge and magnetic arrays.
         Generates the sample outline mask, the AF/FM masks
@@ -216,15 +218,17 @@ class Lamni():
             m = self.rec['mag']
             c = self.rec['charge']
             b = self.Params[self.t]['Box']
+            thresh = self.Params[self.t]['thresh']
         else: 
-            m = self.recDict['{}'.format(t)]['mag']
-            c = self.recDict['{}'.format(t)]['charge']
-            b = self.Params['{}'.format(t)]['Box']
+            m = self.recDict[f'{t}']['mag']
+            c = self.recDict[f'{t}']['charge']
+            b = self.Params[f'{t}']['Box']
+            thresh = self.Params[f'{t}']['thresh']
         
         """Crop the arrays, need to be centered"""
-        
-        mNew = np.zeros(shape = (3, arraySize, arraySize, m.shape[3]))
-        cNew = np.zeros(shape = (arraySize, arraySize, m.shape[3]))
+
+        mNew = np.zeros(shape = (3, self.arraySize, self.arraySize, m.shape[3]))
+        cNew = np.zeros(shape = (self.arraySize, self.arraySize, m.shape[3]))
         dims = [int(b[3]-b[2]), int(b[1]-b[0])]
         mNew[:, int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), int((mNew.shape[2]-dims[1])/2):int((mNew.shape[2]+dims[1])/2), :] = m[:, b[2]:b[3], b[0]:b[1], :]
         cNew[int((mNew.shape[1]-dims[0])/2):int((mNew.shape[1]+dims[0])/2), 
@@ -237,6 +241,7 @@ class Lamni():
             outline = mag > 0.01*np.amax(mag)
         else: 
             outline = 0
+        
         
         test = abs(mag) > thresh*np.amax(abs(mag))
         mx = np.copy(mNew[0], order = "C")

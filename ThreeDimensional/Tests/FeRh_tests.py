@@ -56,8 +56,10 @@ homedir = r'C:\Data\FeRh\Reconstructions_All_20220425\wxmcd'
 os.chdir(homedir)
 files = glob.glob('*')
 files = [file for file in files if len(file) < 7]
+
+
  
-# rec = Lamni.Lamni(files[1], homedir, paramDict = paramDict)
+rec = Lamni.Lamni(files[2], homedir = homedir, paramDict = paramDict)
 # if rec.t == '440': 
 #     for i in range(rec.magProcessed.shape[0]):
 #         for j in range(rec.magProcessed.shape[-1]): 
