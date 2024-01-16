@@ -39,7 +39,7 @@ class Lamni():
         identified for use in lamniMulti. The default is None.
     """
     
-    def __init__(self, file, homedir, paramDict, arraySize = 200, t=None):
+    def __init__(self, fileToLoad, paramDict, arraySize = 200, t=None):
         """
         Initializes the Lamni object
 
@@ -63,11 +63,8 @@ class Lamni():
         """
             
         """Load in the *mat file from the reconstructions"""
-        os.chdir(homedir)
-        print('Loading: {}'.format(file))
-        os.chdir(file)
       
-        r = scipy.io.loadmat(glob.glob('*.mat')[-1])
+        r = scipy.io.loadmat(fileToLoad)
         
         """Crop it so only the non-masked elements in the mag are taken forward"""
         temp = r['mx_out']
@@ -76,14 +73,20 @@ class Lamni():
         rec_mag = np.array([r['mx_out'][...,here[0]], 
                             r['mz_out'][...,here[0]], 
                             r['my_out'][...,here[0]]])
-
-        self.t = str(file[:3])
+        
+        """Extraction of temperature value - specific to FeRh Laminogrpahy experiment
+        Change if required 
+        """
+        if t == None: 
+            self.t = str(fileToLoad.split('\\')[4][:3])
+        else: 
+            self.t = t
+            
         self.rawCharge = rec_charge 
         self.rawMag = rec_mag
         self.arraySize = arraySize
-        
     
-        
+        """Identify the different parameters if doing for the first time."""
         if paramDict == None: 
             """Initialize the param dict for first time use"""
             paramDict = {'H or C': 'C', 
@@ -135,16 +138,16 @@ class Lamni():
                 happy = input('Happy? y or n: ')
                 plt.close(1)
             paramDict['thresh'] = threshTest
-            self.Params = {str(file[:3]): paramDict}
+            self.Params = {self.t: paramDict}
         else: 
             self.Params = paramDict
         
         rotatedCharge = np.zeros_like(self.rawCharge)
         rotatedMag = np.zeros_like(self.rawMag)
         for i in range(rotatedCharge.shape[2]): 
-            rotatedCharge[...,i] = scipy.ndimage.rotate(self.rawCharge[...,i], int(self.Params[str(file[:3])]['Rot']), reshape = False)
+            rotatedCharge[...,i] = scipy.ndimage.rotate(self.rawCharge[...,i], int(self.Params[self.t]['Rot']), reshape = False)
             for j in range(rotatedMag.shape[0]): 
-                rotatedMag[j, ..., i] = scipy.ndimage.rotate(self.rawMag[j, ..., i], int(self.Params[str(file[:3])]['Rot']), reshape = False)
+                rotatedMag[j, ..., i] = scipy.ndimage.rotate(self.rawMag[j, ..., i], int(self.Params[self.t]['Rot']), reshape = False)
         rec = {'charge': rotatedCharge, 
                'mag': rotatedMag}
         if t != None: 
@@ -157,7 +160,7 @@ class Lamni():
         else:  
             """Standalone"""
             self.rec = rec
-            self.temp = str(file[:3])
+            self.temp = self.t
             self.generateMagneticArray()
             if 'theta_use' in list(r.keys()) == True: #FeRh experiment
                 self.theta = r['theta_use'][0][::2]

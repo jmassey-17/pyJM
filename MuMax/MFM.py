@@ -320,16 +320,127 @@ class MFMFile():
                 
         except: 
             pass
-   
+        
+    def filterBySignal(self, attribute, lowerBound, upperBound, 
+                       lowerFillValue = 0, upperFillValue = 1, 
+                       applyFilter = False): 
+        """
+        tests a filter by amplitude signal on attribute
+        replaces everything < lowerBound with lowerFillValue 
+        and everything > upperBound with upperFillValue
+
+        Parameters
+        ----------
+        attribute : str
+            attribute to look at.
+        lowerBound : float
+            percentages of max signal to look below.
+        upperBound : float
+            percentage of max signal to look above.
+        lowerFillValue : float, optional
+            value wich will replace everything below loerBound. The default is 0.
+        upperFillValue : float, optional
+            value wich will replace everything above upperBound. The default is 1.
+        applyFilter : Bool, optional
+            Apply filter to data. The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        #identity array to investiagte and calculate the masks
+        array = getattr(self, attribute)
+        upperMask = array > upperBound*np.amax(array)
+        lowerMask = array < lowerBound*np.amax(array)
+        #dummy array to test on
+        array2 = np.copy(array, order = "C")
+        array2[upperMask] = upperFillValue
+        array2[lowerMask] = lowerFillValue
+        #plot
+        fig, ax = plt.subplots(1,4)
+        ax[0].imshow(array, vmin = np.amin(array), vmax = np.amax(array))
+        ax[1].imshow(upperMask)
+        ax[2].imshow(lowerMask)
+        ax[3].imshow(array2, vmin = np.amin(array2), vmax = np.amax(array2))
+        labels = ['Original', 'Above Upper', 'Below Lower', 'Final']
+        for i in range(4): 
+            ax[i].set_xticks([])
+            ax[i].set_yticks([])
+            ax[i].set_title(labels[i])
+            
+        if applyFilter: 
+            if self.flattenedChannels != None: 
+                channels = self.channels + self.flattenedChannels
+            else: 
+                channels = self.channels
+            for channel in channels: 
+                string = f'{channel}_filtered'
+                array = getattr(self, channel)
+                upperMask = array > upperBound*np.amax(array)
+                lowerMask = array < lowerBound*np.amax(array)
+                array2 = np.copy(array, order = "C")
+                array2[upperMask] = upperFillValue
+                array2[lowerMask] = lowerFillValue
+                setattr(self, string, array2)
+            
+        
+        
+        
+        
+    def applyFunctionToAttribute(self, attributeToTest, function, axis,
+                                 show_plot = True, applyFunction = False):
+        """
+        
+
+        Parameters
+        ----------
+        attributeToTest : str
+            channel information to test.
+        function : func
+            function to test.
+        axis : int, optional
+            axis over which to test the aggregate function. The default is 1.
+        show_plot : Bool, optional
+            . The default is False.
+        applyFunction : Bool, optional
+            apply function to data. The default is False.
+
+        Raises
+        ------
+        ValueError
+            ('Axis must be either 0 (x) or 1 (y)').
+
+        Returns
+        -------
+        None.
+
+        """
+
+        array = getattr(self, attributeToTest)
+        new = np.zeros_like(array)
+        if axis == 0 or axis == 'x': 
+            for i in range(array.shape[0]): 
+                new[i] = array[i]/function(array[i])
+        elif axis == 1 or axis == 'y': 
+            for i in range(array.shape[1]): 
+                new[:,i] = array[:,i] / function(array[:,i])
+        else: 
+            raise ValueError('Axis must be either 0 (x) or 1 (y)')
+            
+            
+        if show_plot:
+            fig, ax = plt.subplots(1,2)
+            ax[0].imshow(array,origin='lower',cmap="inferno", vmin=-0.4, vmax=0.4)
+            ax[1].imshow(new,origin='lower',cmap="inferno", vmin = -1, vmax = 1)
+            
+            ax[0].set_title("Original")
+            ax[1].set_title("Processed")
+            
+        if applyFunction: 
+            setattr(self, f'{attributeToTest}_processed', new)
     
-   
-    
-   
-    def saveShiftedImages(self):
-       for j in range(0,len(fileList)):
-            plt.imshow(shiftedImages[...,j], cmap='inferno',vmin=-0.4, vmax=0.4)   
-            plt.savefig(save_path + f"{j} shifted MFM image.png", dpi=150)
-         
             
          
             
@@ -337,36 +448,37 @@ class MFMFile():
             
          
 ####### User definitions #######
-wkdir = r'C:\Users\treves_s\Documents\PSI\Measurements\MFM\Oxford\20230914_FIB_pills_samp_4\FIB_Pills\Pills_field_sweep_part_1'
+wkdir = r'C:\Data\3D Skyrmion\NdMn2Ge2\NdMn2Ge2_sample_5_batch_2_MFM_switching_images'
 fileList = [file for file in os.listdir(wkdir) if file.find('.ibw') != -1]
 
-save_path = wkdir + r'/Analysed_folder/'
-
-if not os.path.exists(save_path):
-    os.mkdir(save_path)
-
+# savePath 
+# if not os.path.exists(save_path):
+#     os.mkdir(save_path)
 
 
-sampPerLine = 512 #How many samples per line there are for your scan
-shiftedImages = np.zeros(shape = (sampPerLine, sampPerLine, len(fileList)))
-shifts = np.zeros(shape = (len(fileList), 2))
+
+# sampPerLine = 512 #How many samples per line there are for your scan
+# shiftedImages = np.zeros(shape = (sampPerLine, sampPerLine, len(fileList)))
+# shifts = np.zeros(shape = (len(fileList), 2))
 
 for i, file in enumerate(fileList): 
+    if i == 1: 
+        break
     filename = os.path.join(wkdir, file)
     imageData = MFMFile(filename)
     field = np.round(float(imageData.metadata['MagneticField']),2)
     print(f'Processing {field}')
-    imageData.planeLevel(imageData, show_plot=False)
+    imageData.planeLevel(show_plot = False)
     imageData.testAggregateFunction('NapPhaseRetrace_flattened', np.median, axis = 0, show_plot=False) #Due to image being rotated, axis analysed may be changed
     imageData.domainAnalysis('NapPhaseRetrace_flattened', np.median, axis = 0)
     
-    if i == 0:
-            #referenceImage = imageData.HeightRetrace
-            referenceImage = imageData.AmplitudeRetrace_flattened
+    # if i == 0:
+    #         #referenceImage = imageData.HeightRetrace
+    #         referenceImage = imageData.AmplitudeRetrace_flattened
     
-    imageData.alignImages(referenceImage, imageData.HeightRetrace_flattened, show_plot=False)
-    shiftedImages[...,i] = imageData.NapPhaseRetrace_flattened_shifted
-    shifts[i,...] = imageData.NapPhaseRetrace_flattened_shift
+    # imageData.alignImages(referenceImage, imageData.HeightRetrace_flattened, show_plot=False)
+    # shiftedImages[...,i] = imageData.NapPhaseRetrace_flattened_shifted
+    # shifts[i,...] = imageData.NapPhaseRetrace_flattened_shift
     
     
     if i == 0: 
@@ -374,7 +486,7 @@ for i, file in enumerate(fileList):
     else: 
         total = pd.concat([total, imageData.domains], ignore_index=True)
         
-imageData.saveShiftedImages()
+#imageData.saveShiftedImages()
     
         
  

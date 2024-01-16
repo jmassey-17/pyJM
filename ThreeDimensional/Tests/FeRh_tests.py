@@ -27,22 +27,22 @@ paramDict = {'300': {'H or C': 'C',
               '310': {'H or C': 'H', 
                       'Rot': 20, 
                       'Box': [75, 230, 25, 210], 
-                      'thresh': 0.3, 
+                      'thresh': 0.4, 
                       'thetaoffset': 4},
               '330': {'H or C': 'C', 
                       'Rot': -20, 
                       'Box': [70, 215, 45, 215], 
-                      'thresh': 0.1, 
+                      'thresh': 0.15, 
                       'thetaoffset': 0},
               '335': {'H or C': 'H', 
                       'Rot': 20, 
                       'Box': [60, 220, 35, 210], 
-                      'thresh': 0.2, 
+                      'thresh': 0.3, 
                       'thetaoffset': 5},
               '375': {'H or C': 'H', 
                       'Rot': 23, 
                       'Box': [65, 220, 40, 220], 
-                      'thresh': 0.1, 
+                      'thresh': 0.15, 
                       'thetaoffset': 5},
               '440': {'H or C': 'C', 
                       'Rot': -28, 
@@ -52,24 +52,51 @@ paramDict = {'300': {'H or C': 'C',
               }     
 
 
-homedir = r'C:\Data\FeRh\Reconstructions_All_20220425\wxmcd'
-os.chdir(homedir)
-files = glob.glob('*')
-files = [file for file in files if len(file) < 7]
+homedir = r'C:\Data\FeRh\FeRh_Recons_3_20231221'
+searchCriteria = '2023'
+recs = LamniMulti.LamniMulti(homedir, searchCriteria, paramDict = paramDict)
+# errors = []
+# for val in np.arange(-0.05, 0.06, 0.01):
+#     paramDict = {'300': {'H or C': 'C', 
+#                           'Rot': -20, 
+#                           'Box': [75, 215, 40, 215], 
+#                           'thresh': 0.3+val, #0.3 
+#                           'thetaoffset': 0},
+#                   '310': {'H or C': 'H', 
+#                           'Rot': 20, 
+#                           'Box': [75, 230, 25, 210], 
+#                           'thresh': 0.4+val, 
+#                           'thetaoffset': 4},
+#                   '330': {'H or C': 'C', 
+#                           'Rot': -20, 
+#                           'Box': [70, 215, 45, 215], 
+#                           'thresh': 0.2+val, 
+#                           'thetaoffset': 0},
+#                   '335': {'H or C': 'H', 
+#                           'Rot': 20, 
+#                           'Box': [60, 220, 35, 210], 
+#                           'thresh': 0.3+val, 
+#                           'thetaoffset': 5},
+#                   '375': {'H or C': 'H', 
+#                           'Rot': 23, 
+#                           'Box': [65, 220, 40, 220], 
+#                           'thresh': 0.15+val, 
+#                           'thetaoffset': 5},
+#                   '440': {'H or C': 'C', 
+#                           'Rot': -28, 
+#                           'Box': [90, 235, 50, 230], 
+#                           'thresh': 0.01+val, 
+#                           'thetaoffset': 24},
+#                   }     
 
-
- 
-rec = Lamni.Lamni(files[2], homedir = homedir, paramDict = paramDict)
-# if rec.t == '440': 
-#     for i in range(rec.magProcessed.shape[0]):
-#         for j in range(rec.magProcessed.shape[-1]): 
-#               rec.magProcessed[i, ...,j] = rotate(rec.magProcessed[i, ...,j], 180)
-#     #for 440 K only        
-#     rec.magProcessed[0] = -rec.magProcessed[0]
-#     rec.magProcessed[1]= -rec.magProcessed[1]
-
+#     recs = LamniMulti.LamniMulti(homedir, searchCriteria, paramDict = paramDict)
+#     recs.volumeCalculation()
+#     for t in list(recs.volume.keys()):
+#         errors.append([val, t, recs.volume[t]['volume'], recs.volume[t]['error']])
+# import pandas as pd
+# test = pd.DataFrame(data=errors, columns = ['val', 'temp', 'volume', 'error'])   
+    
 #recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
-recs = LamniMulti.LamniMulti(homedir, paramDict = paramDict)
 # # recs.countDistribution()
 # recs.domainAnalysis2(thresh = 1)
 # recs.generateHeatCoolDataframe('finalIndividualFM', [310,335,375])

@@ -11,8 +11,10 @@ if os.path.exists(wkdir) != True:
     os.chdir(wkdir)
 else: 
     os.chdir(wkdir)
-    
+
+i = 0
 for t in list(recs.zoomedFinal.keys()):
+    
     self = recs
     field = 'zoomedFinal'
    

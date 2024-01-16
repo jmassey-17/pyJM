@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 pd.set_option('mode.chained_assignment', None) #gets rid of errors that are unclear how to handle...
 import seaborn as sns
+from pyJM.BasicFunctions import timeOperation
 
 
 def _read_line(data, metadata):
@@ -37,14 +38,18 @@ def _read_line(data, metadata):
     parts = line.split(":")
     field = parts[0].strip()
     value = ":".join(parts[1:]).strip()
-    if field == "Begin" and value.startswith("Data "):
-        value = value.split(" ")
-        metadata["representation"] = value[1]
-        if value[1] == "Binary":
-            metadata["representation size"] = value[2]
-        return False
+    if field == "Begin" or field == 'End':
+        if value.startswith("Data "):
+            value = value.split(" ")
+            metadata["representation"] = value[1]
+            if value[1] == "Binary":
+                metadata["representation size"] = value[2]
+            return False
+        else: 
+            return True
     if field not in ["Begin", "End"]:
         metadata[field] = value
+        return True
 
 
 def E(i,j,k): 
@@ -140,8 +145,10 @@ class OVFFile:
             line = data.readline().decode("utf-8", errors="ignore").strip("#\n \t\r")
             if line not in ["OOMMF: rectangular mesh v1.0", "OOMMF OVF 2.0"]:
                 raise NameError('HiThere')("Not an OVF 1.0 or 2.0 file.")
+       
             while _read_line(data, self.metadata):
                 pass  # Read the file until we reach the start of the data block.
+           
             if self.metadata["representation"] == "Binary":
                 size = (  # Work out the size of the data block to read
                     int(self.metadata["xnodes"])
@@ -191,7 +198,7 @@ class OVFFile:
         self.m = data.reshape((int(self.metadata['znodes']), int(self.metadata['xnodes']), int(self.metadata['ynodes']), 3))
         self.m = np.swapaxes(self.m, 0, -1)
         
-               
+
     def findAndCharacterizeSkyrmions(self): 
         """
         runs a regionprops for up and down and calcualtes skyrmion winding number for each area
@@ -257,6 +264,7 @@ def returnFieldFromFilename(filename):
     
 wkdir = r'C:\Data\3D Skyrmion\NdMn2Ge2\NdMn2Ge2_2D_DMI_1e-3_relax'
 files = sorted([file for file in os.listdir(wkdir) if file.find('ovf') != -1 or file.find('omf') != -1])
+
 for i, file in enumerate(files):
     data = OVFFile(os.path.join(wkdir, file))
     data.findAndCharacterizeSkyrmions()

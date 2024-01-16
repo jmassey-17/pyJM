@@ -34,7 +34,7 @@ class LamniMulti(Lamni):
     
     """
     
-    def __init__(self, homedir, paramDict):
+    def __init__(self, homedir, searchCriteria, paramDict):
         """
         Initializes the Lamni  multiobject
 
@@ -50,9 +50,6 @@ class LamniMulti(Lamni):
         None.
         
         """
-        os.chdir(homedir)
-        files = glob.glob('*')
-        files.remove('AnalysisParams.csv')
         
         self.recDict = {}
         self.thetaDict = {}
@@ -60,9 +57,12 @@ class LamniMulti(Lamni):
         self.projMeas = {}
         self.projMeasCorrected = {}
         
-        for file in files:
-            if file[-1] != 'k': 
-                super().__init__(file, homedir, paramDict, t = str(file[:3]))
+        folders = os.listdir(homedir)
+        for folder in folders: 
+            file = [f for f in os.listdir(os.path.join(homedir, folder)) if f.find(searchCriteria) != -1][0]
+            fileToLoad = os.path.join(homedir, folder, file)
+            print(f'Loading {folder[:3]} K')
+            super().__init__(fileToLoad, paramDict, t = str(folder[:3]))
         
         """ Calculate relevant quantities"""
         self.initializeMagneticArray()
@@ -71,6 +71,9 @@ class LamniMulti(Lamni):
     def JM_FeRh_LamniSpecific(self): 
         """
         Method Specific to JM FeRh experiment.Delete if required. 
+        
+        As 440K is at 180 degress to the others, these changes are necessary to align the sample 
+        and the magnetization to be consistent with the other measurements.
 
         Returns
         -------
