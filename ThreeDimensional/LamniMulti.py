@@ -67,26 +67,7 @@ class LamniMulti(Lamni):
         """ Calculate relevant quantities"""
         self.initializeMagneticArray()
         self.zoomArrays()
-                
-    def JM_FeRh_LamniSpecific(self): 
-        """
-        Method Specific to JM FeRh experiment.Delete if required. 
-        
-        As 440K is at 180 degress to the others, these changes are necessary to align the sample 
-        and the magnetization to be consistent with the other measurements.
-
-        Returns
-        -------
-        None.
-        """
-        
-        for i in range(3):
-            if i == 2:
-                self.magProcessed['440'][i] = rotate(self.magProcessed['440'][i], 180)
-            else: 
-                self.magProcessed['440'][i] = -rotate(self.magProcessed['440'][i], 180)
-
-        self.magMasks['440'] = rotate(self.magMasks['440'], 180) 
+                 
     
     def initializeMagneticArray(self): 
         """
@@ -106,7 +87,7 @@ class LamniMulti(Lamni):
         self.sampleOutline = {}
         for t in list(self.Params.keys()):
             super().generateMagneticArray(t = t)
-        self.JM_FeRh_LamniSpecific()
+
         
     def zoomArrays(self): 
         """

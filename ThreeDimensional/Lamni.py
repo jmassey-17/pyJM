@@ -174,23 +174,7 @@ class Lamni():
                     self.projCalc = r['proj_mag']
                 except: 
                     print('No calculated projections found - carrying on without them')
-                    
-    def JM_FeRh_LamniSpecific_Single(self): 
-        """
-        Method Specific to JM FeRh experiment.Delete if required. 
-
-        Returns
-        -------
-        None.
-        """
         
-        for i in range(3):
-            if i == 2:
-                self.magProcessed[i] = rotate(self.magProcessed[i], 180)
-            else: 
-                self.magProcessed[i] = -rotate(self.magProcessed[i], 180)
-
-        self.magMasks = rotate(self.magMasks, 180) 
             
         
         

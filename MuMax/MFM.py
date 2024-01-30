@@ -440,13 +440,8 @@ class MFMFile():
             
         if applyFunction: 
             setattr(self, f'{attributeToTest}_processed', new)
-    
             
-         
-            
-         
-            
-         
+   
 ####### User definitions #######
 wkdir = r'C:\Data\3D Skyrmion\NdMn2Ge2\NdMn2Ge2_sample_5_batch_2_MFM_switching_images'
 fileList = [file for file in os.listdir(wkdir) if file.find('.ibw') != -1]

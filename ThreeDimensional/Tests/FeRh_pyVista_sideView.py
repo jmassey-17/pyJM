@@ -15,7 +15,23 @@ else:
 self = recs
 field = 'zoomedFinal'
 i = 0
-for t in list(recs.zoomedFinal.keys()):
+
+self = recs
+field = 'magProcessed'
+t = '330'
+cmap = 'twilight_shifted'
+view = 'down'
+i = 0
+arrowScale = 3
+pv.set_plot_theme("paraview")
+p = pv.Plotter(shape = (3,2), border = False, window_size= (1024,512))
+p.background_color = "white"
+# p.camera_position = 'xy'
+# p.camera.roll = -90
+box = None
+inplaneSkip = 5
+outofplaneSkip = 0
+for t in list(recs.magProcessed.keys()):
     # i += 1
     # if i == 2: 
     #     break 
@@ -130,9 +146,7 @@ for t in list(recs.zoomedFinal.keys()):
     #                             replace=False)
     
     
-    pv.set_plot_theme("document")
-    p = pv.Plotter()
-    p.camera_position = 'xz'
+    
     #p.camera.roll = -90
     # # # #p.camera.azimuth = 0
     #p.camera.elevation = -45
@@ -142,9 +156,16 @@ for t in list(recs.zoomedFinal.keys()):
     #p.camera.position = (56.69549082747431, 0.0, 56.69549082747431)
     
     
-    p.camera.position =  (0,-100, 0.0)
     
     
+    tArray = {'440': [0,0],
+              '330': [1,0], 
+              '300': [2,0],
+              '375': [0,1],
+              '335': [1,1], 
+              '310': [2,1],
+              }
+    p.subplot(tArray[t][0], tArray[t][1])
     
     opacity = [0,.7]
     p.add_mesh(arrows, scalars='scalars', lighting=False, cmap='twilight_shifted', clim = [-np.pi, np.pi], show_scalar_bar=False)
@@ -152,6 +173,7 @@ for t in list(recs.zoomedFinal.keys()):
     p.add_volume(mesh2, scalars='scalars', cmap='twilight_shifted', opacity = opacity, show_scalar_bar = False)
     p.add_bounding_box()
     #p.add_axes(labels_off = True, line_width = 5)
+    p.camera.position =  (0,-100, 0.0)
     
     
     y_down = [(0, 80, 0),
@@ -161,5 +183,5 @@ for t in list(recs.zoomedFinal.keys()):
     z_down = [(0, 0, 180),
     (0, 0, 0),
     (-40, 1, 0)]
-    p.save_graphic(f'{t}_sideView_IPSkip_{inplaneSkip}.svg')
-    p.show()
+#p.save_graphic(f'{t}_sideView_IPSkip_{inplaneSkip}.svg')
+p.show()
