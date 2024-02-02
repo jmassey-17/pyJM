@@ -17,8 +17,7 @@ from scipy.ndimage import binary_fill_holes, binary_dilation
 import matplotlib.pyplot as plt
 
 
-from pyJM.BasicFunctions import *
-#from pyJM.ThreeDimensional.GUIClasses import *      
+from pyJM.BasicFunctions import *   
       
 class Lamni(): 
     """
@@ -71,7 +70,7 @@ class Lamni():
         here = np.where(np.mean(temp, axis = (0,1)) != 0 )
         rec_charge = r['abs_out'][...,here[0]]
         rec_mag = np.array([r['mx_out'][...,here[0]], 
-                            r['mz_out'][...,here[0]], 
+                            r['mz_out'][...,here[0]], # matlab out has mz as my
                             r['my_out'][...,here[0]]])
         
         """Extraction of temperature value - specific to FeRh Laminogrpahy experiment

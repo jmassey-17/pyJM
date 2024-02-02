@@ -55,3 +55,7 @@ paramDict = {'300': {'H or C': 'C',
 homedir = r'C:\Data\FeRh\FeRh_Recons_3_20231221'
 searchCriteria = '2023'
 recs = LamniMulti.LamniMulti(homedir, searchCriteria, paramDict = paramDict)
+
+# for 3D pyvista images
+view = 'down'
+recs.plot3Dfields(view, **recs.presets[view])
