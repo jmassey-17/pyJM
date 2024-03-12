@@ -1,0 +1,76 @@
+Metadata-Version: 2.1
+Name: pyJM
+Version: 0.3.0
+Summary: Package for analysis and visualisation of reconstructed three-dimensional magnetic imaging
+Home-page: https://github.com/jmassey-17/pyJM
+Author: Jamie Massey
+Author-email: jamie435@hotmail.co.uk
+License: MIT license
+Keywords: pyJM
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+License-File: LICENSE
+License-File: AUTHORS.rst
+
+====
+pyJM
+====
+
+Package for analysis and visualisation of reconstructed three-dimensional magnetic imaging
+
+
+* Free software: MIT license
+* Documentation: https://pyJM2.readthedocs.io.
+
+
+Features
+--------
+ 
+Code for the processing of the results of three-dimensional reconstructions of laminographic data from the iterative reconstruction from [Magnetic Laminography](https://www.nature.com/articles/nature23006). 
+
+Please contact jamie435@hotmail.co.uk with any issues. 
+
+Installation
+------------
+
+This package can be installed using 
+
+'''
+pip install pyJM
+'''
+
+Credits
+-------
+
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
+
+
+=======
+History
+=======
+
+0.3.0 (2024-03-12)
+------------------
+
+* Installation issues addressed
+
+0.2.0 (2024-03-12)
+------------------
+
+* Unused/unfinished modules removed 
+
+
+0.1.0 (2024-03-12)
+------------------
+
+* First release on PyPI.
