@@ -2,6 +2,12 @@
 History
 =======
 
+0.4.0 (2024-03-12)
+------------------
+
+* mumax altered to use Stoner.formats.OVFFile
+
+
 0.3.0 (2024-03-12)
 ------------------
 

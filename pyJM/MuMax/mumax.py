@@ -12,44 +12,7 @@ import pandas as pd
 pd.set_option('mode.chained_assignment', None) #gets rid of errors that are unclear how to handle...
 import seaborn as sns
 from pyJM.BasicFunctions import timeOperation
-
-
-def _read_line(data, metadata):
-    """
-    reads line and adds to metadata
-    hacked from Stoner.formats.simulations
-
-    Parameters
-    ----------
-    data : file
-        file to strip to metadata.
-    metadata : dict
-        metadata dictionary.
-
-    Returns
-    -------
-    None
-
-    """
-    """Read a single line and add to a metadata dictionary."""
-    line = data.readline().decode("utf-8", errors="ignore").strip("#\n \t\r")
-    if line == "" or ":" not in line:
-        return True
-    parts = line.split(":")
-    field = parts[0].strip()
-    value = ":".join(parts[1:]).strip()
-    if field == "Begin" or field == 'End':
-        if value.startswith("Data "):
-            value = value.split(" ")
-            metadata["representation"] = value[1]
-            if value[1] == "Binary":
-                metadata["representation size"] = value[2]
-            return False
-        else: 
-            return True
-    if field not in ["Begin", "End"]:
-        metadata[field] = value
-        return True
+import Stoner
 
 
 def E(i,j,k): 
@@ -111,26 +74,12 @@ def calculateWindingNumber2(image, cx, cy, image_filled, window = 5):
     except: 
         return np.nan
 
-
 class mumax:
-    """JM 20231117 
-    hacked from Stoner.formats.simulations
-    
-    A class that reads OOMMF vector format files and constructs x,y,z,u,v,w data.
-
-    OVF 1 and OVF 2 files with text or binary data and only files with a meshtype rectangular are supported
+    """
+    Piggybacks Stoner.formats.simulations.OVFFile to generate magnetization array from mumax file
+    that can be used to find and characterize Skyrmions
     """
 
-    #: priority (int): is the load order for the class, smaller numbers are tried before larger numbers.
-    #   .. note::
-    #      Subclasses with priority<=32 should make some positive identification that they have the right
-    #      file type before attempting to read data.
-    priority = 16
-    #: pattern (list of str): A list of file extensions that might contain this type of file. Used to construct
-    # the file load/save dialog boxes.
-    patterns = ["*.ovf"]  # Recognised filename patterns
-
-    mime_type = ["text/plain", "application/octet-stream"]
 
     def __init__(self, filename, *args, **kargs):
         """Load function. File format has space delimited columns from row 3 onwards.
@@ -139,64 +88,13 @@ class mumax:
             This code can handle only the first segment in the data file.
         """
         self.filename = filename
-        self.metadata = {}
-        # Reading in binary, converting to utf-8 where we should be in the text header
-        with open(self.filename, "rb") as data:
-            line = data.readline().decode("utf-8", errors="ignore").strip("#\n \t\r")
-            if line not in ["OOMMF: rectangular mesh v1.0", "OOMMF OVF 2.0"]:
-                raise NameError('HiThere')("Not an OVF 1.0 or 2.0 file.")
-       
-            while _read_line(data, self.metadata):
-                pass  # Read the file until we reach the start of the data block.
-           
-            if self.metadata["representation"] == "Binary":
-                size = (  # Work out the size of the data block to read
-                    int(self.metadata["xnodes"])
-                    * int(self.metadata["ynodes"])
-                    * int(self.metadata["znodes"])
-                    * int(self.metadata["valuedim"])
-                    + 1
-                ) * int(self.metadata["representation size"])
-                bin_data = data.read(size)
-                numbers = np.frombuffer(bin_data, dtype=f"<f{self.metadata['representation size']}")
-                chk = numbers[0]
-                if (
-                    chk != [1234567.0, 123456789012345.0][int(self.metadata["representation size"]) // 4 - 1]
-                ):  # If we have a good check number we can carry on, otherwise try the other endianess
-                    numbers = np.frombuffer(bin_data, dtype=f">f{self.metadata['representation size']}")
-                    chk = numbers[0]
-
-                data = np.reshape(
-                    numbers[1:], (int(self.metadata["xnodes"]) * int(self.metadata["ynodes"]) * int(self.metadata["znodes"]), 3),
-                )
-            else:
-                data = np.genfromtxt(
-                    data, max_rows=int(self.metadata["xnodes"]) * int(self.metadata["ynodes"]) * int(self.metadata["znodes"]),
-                )
-        xmin, xmax, xstep = (
-            float(self.metadata["xmin"]),
-            float(self.metadata["xmax"]),
-            float(self.metadata["xstepsize"]),
-        )
-        ymin, ymax, ystep = (
-            float(self.metadata["ymin"]),
-            float(self.metadata["ymax"]),
-            float(self.metadata["ystepsize"]),
-        )
-        zmin, zmax, zstep = (
-            float(self.metadata["zmin"]),
-            float(self.metadata["zmax"]),
-            float(self.metadata["zstepsize"]),
-        )
-        Z, Y, X = np.meshgrid(
-            np.arange(zmin + zstep / 2, zmax, zstep) * 1e9,
-            np.arange(ymin + ystep / 2, ymax, ystep) * 1e9,
-            np.arange(xmin + xstep / 2, xmax, xstep) * 1e9,
-            indexing="ij",
-        )
-        self.data = np.column_stack((X.ravel(), Y.ravel(), Z.ravel(), data))
-        self.m = data.reshape((int(self.metadata['znodes']), int(self.metadata['xnodes']), int(self.metadata['ynodes']), 3))
-        self.m = np.swapaxes(self.m, 0, -1)
+        self.StonerObject = Stoner.formats.simulations.OVFFile(filename)
+        self.metadata = self.StonerObject.metadata
+        for m, i in zip(['mx','my', 'mz'],[3,4,5]):
+            setattr(self, m, self.StonerObject.data.data[:,i].reshape((self.metadata['xnodes'],
+                                                                       self.metadata['ynodes'], 
+                                                                       self.metadata['znodes'])))
+        self.m = np.array([self.mx,self.my,self.mz])
         
 
     def findAndCharacterizeSkyrmions(self): 
@@ -241,7 +139,8 @@ class mumax:
             else: 
                 self.skyrmionAnalysis = pd.concat([self.skyrmionAnalysis, onScreen], ignore_index = True)
 
-def returnFieldFromFilename(filename): 
+
+def returnFieldFromFilename(file): 
     """
     returns field from filename
 
@@ -254,33 +153,11 @@ def returnFieldFromFilename(filename):
     field: float
 
     """
-    if filename[0] == 'n': 
+    if file[0] == 'n': 
         return np.round(float(file[1:file.find('_')]), 3)
-    elif filename[0].isnumeric() or filename[0] == '-': 
+    elif file[0].isnumeric() or file[0] == '-': 
         return np.round(float(file[:file.find('_')]), 3)
     else: 
         return 0
 
     
-# wkdir = r'C:\Data\3D Skyrmion\NdMn2Ge2\NdMn2Ge2_2D_DMI_1e-3_relax'
-# files = sorted([file for file in os.listdir(wkdir) if file.find('ovf') != -1 or file.find('omf') != -1])
-
-# for i, file in enumerate(files[:1]):
-#     print(i)
-#     data = mumax(os.path.join(wkdir, file))
-#     data.findAndCharacterizeSkyrmions()
-#     field = returnFieldFromFilename(file)
-#     if i == 0: 
-#         skDatabase = data.skyrmionAnalysis
-#         skDatabase['field'] = field
-#     else: 
-#         tempDB = data.skyrmionAnalysis
-#         tempDB['field'] = field
-#         skDatabase = pd.concat([skDatabase, tempDB], ignore_index = True)
-        
-# # Single        
-# # plt.imshow(test.m[2,...,0])
-# # sns.scatterplot(data = test.skyrmionAnalysis, x = 'centroid-1', y = 'centroid-0', hue = 'Q', cmap = 'reds')
-
-# # multi
-# sns.scatterplot(data = skDatabase, x = 'field', y = 'Q', hue = 'type')

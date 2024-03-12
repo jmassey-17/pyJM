@@ -378,48 +378,7 @@ class MFMFile():
             
         if applyFunction: 
             setattr(self, f'{attributeToTest}_processed', new)
-            
-   
-# ####### User definitions #######
-# wkdir = r'C:\Data\3D Skyrmion\NdMn2Ge2\NdMn2Ge2_sample_5_batch_2_MFM_switching_images'
-# fileList = [file for file in os.listdir(wkdir) if file.find('.ibw') != -1]
 
-# # savePath 
-# # if not os.path.exists(save_path):
-# #     os.mkdir(save_path)
-
-
-
-# # sampPerLine = 512 #How many samples per line there are for your scan
-# # shiftedImages = np.zeros(shape = (sampPerLine, sampPerLine, len(fileList)))
-# # shifts = np.zeros(shape = (len(fileList), 2))
-
-# for i, file in enumerate(fileList): 
-#     if i == 1: 
-#         break
-#     filename = os.path.join(wkdir, file)
-#     imageData = MFMFile(filename)
-#     field = np.round(float(imageData.metadata['MagneticField']),2)
-#     print(f'Processing {field}')
-#     imageData.planeLevel(show_plot = False)
-#     imageData.testAggregateFunction('NapPhaseRetrace_flattened', np.median, axis = 0, show_plot=False) #Due to image being rotated, axis analysed may be changed
-#     imageData.domainAnalysis('NapPhaseRetrace_flattened', np.median, axis = 0)
-    
-#     # if i == 0:
-#     #         #referenceImage = imageData.HeightRetrace
-#     #         referenceImage = imageData.AmplitudeRetrace_flattened
-    
-#     # imageData.alignImages(referenceImage, imageData.HeightRetrace_flattened, show_plot=False)
-#     # shiftedImages[...,i] = imageData.NapPhaseRetrace_flattened_shifted
-#     # shifts[i,...] = imageData.NapPhaseRetrace_flattened_shift
-    
-    
-#     if i == 0: 
-#         total = imageData.domains
-#     else: 
-#         total = pd.concat([total, imageData.domains], ignore_index=True)
-        
-# #imageData.saveShiftedImages()
     
         
  

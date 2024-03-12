@@ -21,6 +21,7 @@ requirements = ['igor==0.3',
                 'scipy>=1.7.1',
                 'seaborn>=0.11.2',
                 'setuptools>=40.2.0',
+                'Stoner==0.10.4',
 
  ]
 
@@ -51,6 +52,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/jmassey-17/pyJM',
-    version='0.3.0',
+    version='0.4.0',
     zip_safe=False,
 )
