@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyJM
-Version: 0.3.0
+Version: 0.4.0
 Summary: Package for analysis and visualisation of reconstructed three-dimensional magnetic imaging
 Home-page: https://github.com/jmassey-17/pyJM
 Author: Jamie Massey
@@ -18,6 +18,18 @@ Classifier: Programming Language :: Python :: 3.8
 Requires-Python: >=3.6
 License-File: LICENSE
 License-File: AUTHORS.rst
+Requires-Dist: igor==0.3
+Requires-Dist: matplotlib>=3.4.3
+Requires-Dist: numpy>=1.15.1
+Requires-Dist: pandas>=1.3.4
+Requires-Dist: Pillow>=8.4.0
+Requires-Dist: pytest>=6.2.4
+Requires-Dist: pyvista>=0.31.0
+Requires-Dist: scikit_image>=0.18.3
+Requires-Dist: scipy>=1.7.1
+Requires-Dist: seaborn>=0.11.2
+Requires-Dist: setuptools>=40.2.0
+Requires-Dist: Stoner==0.10.4
 
 ====
 pyJM
@@ -58,6 +70,12 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 =======
 History
 =======
+
+0.4.0 (2024-03-12)
+------------------
+
+* mumax altered to use Stoner.formats.OVFFile
+
 
 0.3.0 (2024-03-12)
 ------------------
